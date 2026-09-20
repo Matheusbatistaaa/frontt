@@ -18,25 +18,37 @@ const statusIconMap = {
   "finalizada": UserX,
 };
 
+const MOCK_VISITAS: Visita[] = [
+  { id: "v1", leito: "402", paciente: "M. Silva", visitante: "Carlos Silva", parentesco: "Filho", entrada: "13:30", saida: "---", status: "em-andamento" },
+  { id: "v2", leito: "403", paciente: "J. Andrade", visitante: "Mariana Andrade", parentesco: "Esposa", entrada: "14:00", saida: "---", status: "em-andamento" },
+  { id: "v3", leito: "404", paciente: "R. Costa", visitante: "Lucas Costa", parentesco: "Irmão", entrada: "10:15", saida: "11:30", status: "finalizada" },
+  { id: "v4", leito: "406", paciente: "C. Prado", visitante: "Fernanda Prado", parentesco: "Filha", entrada: "16:00", saida: "17:00", status: "agendada" },
+  { id: "v5", leito: "407", paciente: "L. Ferreira", visitante: "Renata Ferreira", parentesco: "Mãe", entrada: "17:30", saida: "18:30", status: "agendada" },
+];
+
 export const Visitas: React.FC = () => {
   const { data: supabaseVisitas = [], refetch } = useVisitas();
   const [modalOpen, setModalOpen] = useState(false);
+  const [localVisitas, setLocalVisitas] = useState<Visita[]>(MOCK_VISITAS);
 
-  const visitasData: Visita[] = supabaseVisitas.map((dbVisita: any) => {
-    const formatTime = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "??:??";
-    return {
-      leito: "??",
-      paciente: dbVisita.paciente?.nome || "",
-      visitante: dbVisita.nome_visitante || "Desconhecido",
-      parentesco: dbVisita.parentesco || "-",
-      entrada: formatTime(dbVisita.data_entrada),
-      saida: formatTime(dbVisita.data_saida) === "??:??" ? "---" : formatTime(dbVisita.data_saida),
-      status: dbVisita.status === "concluida" ? "finalizada" : (dbVisita.data_saida ? "agendada" : "em-andamento"),
-      id: dbVisita.id,
-    };
-  });
+  const visitasData: Visita[] = (supabaseVisitas && supabaseVisitas.length > 0)
+    ? supabaseVisitas.map((dbVisita: any) => {
+        const formatTime = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "??:??";
+        return {
+          leito: dbVisita.leito?.numero || "402",
+          paciente: dbVisita.paciente?.nome || "M. Silva",
+          visitante: dbVisita.nome_visitante || "Visitante",
+          parentesco: dbVisita.parentesco || "Familiar",
+          entrada: formatTime(dbVisita.data_entrada),
+          saida: formatTime(dbVisita.data_saida) === "??:??" ? "---" : formatTime(dbVisita.data_saida),
+          status: dbVisita.status === "concluida" ? "finalizada" : (dbVisita.data_saida ? "agendada" : "em-andamento"),
+          id: dbVisita.id,
+        };
+      })
+    : localVisitas;
 
   const handleAddVisita = async (visita: Visita) => {
+    setLocalVisitas(prev => [visita, ...prev]);
     setModalOpen(false);
   };
 

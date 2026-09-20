@@ -1,0 +1,274 @@
+{
+  "images_per_class": 150,
+  "epochs": 2,
+  "image_size": 224,
+  "batch_size": 32,
+  "learning_rate": 0.0001,
+  "seed": 42,
+  "train_ratio": 0.8,
+  "num_classes": 8,
+  "class_names": [
+    "dor",
+    "enjoo",
+    "medo",
+    "sono",
+    "tristeza",
+    "neutro",
+    "acordado",
+    "dormindo"
+  ],
+  "class_mapping": {
+    "dor": "dor",
+    "enjoo": "enjoo",
+    "medo": "medo",
+    "sono": "sono",
+    "triste": "tristeza",
+    "neutro": "neutro",
+    "acordado": "acordado",
+    "desacordado": "dormindo"
+  },
+  "preprocessing": {
+    "image_size": "224x224",
+    "channels": "RGB",
+    "normalization": "ImageNet",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "tensor_format": "NCHW",
+    "augmentation_train": [
+      "RandomHorizontalFlip",
+      "RandomRotation(15)",
+      "ColorJitter(brightness=0.3, contrast=0.3)"
+    ],
+    "augmentation_val": "None"
+  },
+  "model": {
+    "architecture": "MobileNetV2",
+    "pretrained": "ImageNet",
+    "transfer_learning": true,
+    "num_outputs": 8,
+    "parameters_total": 2234120,
+    "parameters_trainable": 2234120
+  },
+  "training": {
+    "optimizer": "Adam",
+    "loss_function": "CrossEntropyLoss",
+    "device": "cpu",
+    "total_duration_seconds": 204.34,
+    "total_duration_formatted": "3m 24s",
+    "best_epoch": 2,
+    "best_val_acc": 89.1667
+  },
+  "dataset_statistics": {
+    "dor": {
+      "folder": "dor",
+      "raw_count": 516,
+      "unique_count": 516,
+      "duplicates_removed": 0,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "enjoo": {
+      "folder": "enjoo",
+      "raw_count": 1017,
+      "unique_count": 959,
+      "duplicates_removed": 58,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "medo": {
+      "folder": "medo",
+      "raw_count": 1001,
+      "unique_count": 1000,
+      "duplicates_removed": 1,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "sono": {
+      "folder": "sono",
+      "raw_count": 999,
+      "unique_count": 999,
+      "duplicates_removed": 0,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "tristeza": {
+      "folder": "triste",
+      "raw_count": 1024,
+      "unique_count": 1023,
+      "duplicates_removed": 1,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "neutro": {
+      "folder": "neutro",
+      "raw_count": 1056,
+      "unique_count": 1056,
+      "duplicates_removed": 0,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "acordado": {
+      "folder": "acordado",
+      "raw_count": 1296,
+      "unique_count": 1296,
+      "duplicates_removed": 0,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    },
+    "dormindo": {
+      "folder": "desacordado",
+      "raw_count": 778,
+      "unique_count": 778,
+      "duplicates_removed": 0,
+      "selected": 150,
+      "train_count": 120,
+      "val_count": 30
+    }
+  },
+  "duplicate_statistics": {
+    "total_found": 7687,
+    "total_duplicates": 60,
+    "total_unique": 7627,
+    "duplicate_groups": 54
+  },
+  "split": {
+    "total_selected": 1200,
+    "train_count": 960,
+    "val_count": 240
+  },
+  "epoch_history": {
+    "train_loss": [
+      1.791309,
+      1.044989
+    ],
+    "val_loss": [
+      1.445619,
+      0.739083
+    ],
+    "train_acc": [
+      48.3333,
+      85.9375
+    ],
+    "val_acc": [
+      75.0,
+      89.1667
+    ]
+  },
+  "validation_metrics": {
+    "accuracy": 89.1667,
+    "macro_precision": 90.1351,
+    "macro_recall": 89.1667,
+    "macro_f1": 89.0844,
+    "per_class": {
+      "dor": {
+        "precision": 82.7586,
+        "recall": 80.0,
+        "f1": 81.3559,
+        "count": 30
+      },
+      "enjoo": {
+        "precision": 100.0,
+        "recall": 100.0,
+        "f1": 100.0,
+        "count": 30
+      },
+      "medo": {
+        "precision": 78.9474,
+        "recall": 100.0,
+        "f1": 88.2353,
+        "count": 30
+      },
+      "sono": {
+        "precision": 100.0,
+        "recall": 86.6667,
+        "f1": 92.8571,
+        "count": 30
+      },
+      "tristeza": {
+        "precision": 85.7143,
+        "recall": 100.0,
+        "f1": 92.3077,
+        "count": 30
+      },
+      "neutro": {
+        "precision": 100.0,
+        "recall": 73.3333,
+        "f1": 84.6154,
+        "count": 30
+      },
+      "acordado": {
+        "precision": 84.375,
+        "recall": 90.0,
+        "f1": 87.0968,
+        "count": 30
+      },
+      "dormindo": {
+        "precision": 89.2857,
+        "recall": 83.3333,
+        "f1": 86.2069,
+        "count": 30
+      }
+    }
+  },
+  "outputs": {
+    "best_model": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\checkpoints\\best_model.pth",
+    "last_model": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\checkpoints\\last_model.pth",
+    "onnx_model": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\onnx\\perceptai_mobilenetv2.onnx",
+    "confusion_matrix": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\plots\\confusion_matrix.png",
+    "plots_dir": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\plots",
+    "report": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\metrics\\training_report.json"
+  },
+  "onnx_validation": {
+    "onnx_path": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\outputs\\onnx\\perceptai_mobilenetv2.onnx",
+    "num_samples_tested": 3,
+    "all_predictions_match": true,
+    "tolerance_used": 1e-05,
+    "samples": [
+      {
+        "sample": 1,
+        "image_path": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\src\\datasets\\enjoo\\train10137.jpg",
+        "true_label": "enjoo",
+        "pytorch_prediction": "enjoo",
+        "onnx_prediction": "enjoo",
+        "max_absolute_difference": 3.337860107421875e-06,
+        "numerically_close": true,
+        "predictions_match": true
+      },
+      {
+        "sample": 2,
+        "image_path": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\src\\datasets\\neutro\\ffhq_1111.png",
+        "true_label": "neutro",
+        "pytorch_prediction": "medo",
+        "onnx_prediction": "medo",
+        "max_absolute_difference": 8.940696716308594e-07,
+        "numerically_close": true,
+        "predictions_match": true
+      },
+      {
+        "sample": 3,
+        "image_path": "C:\\Users\\Solange\\Desktop\\TCC\\Site_PerceptAI\\src\\datasets\\dor\\胸痛1_png.rf.nf4jcnsvNrC74uyDiZoN.png",
+        "true_label": "dor",
+        "pytorch_prediction": "dor",
+        "onnx_prediction": "dor",
+        "max_absolute_difference": 1.7471611499786377e-06,
+        "numerically_close": true,
+        "predictions_match": true
+      }
+    ]
+  }
+}

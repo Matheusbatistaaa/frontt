@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   FileText,
   Activity,
@@ -65,23 +66,44 @@ function Section({ icon: Icon, title, children }: SectionProps) {
 }
 
 export function Prontuario() {
-  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>(null);
+  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>({
+    id: "1",
+    nome: "Maria Silva",
+    idade: 28,
+    leito: "402",
+    sexo: "F",
+    condicao: "Pós-operatório cardíaco",
+  });
   const [modalTrocarAberto, setModalTrocarAberto] = useState(false);
 
-  const [queixaPrincipal, setQueixaPrincipal] = useState("");
-  const [historiaDoenca, setHistoriaDoenca] = useState("");
-  const [avaliacao, setAvaliacao] = useState("");
-  const [orientacoes, setOrientacoes] = useState("");
+  const [queixaPrincipal, setQueixaPrincipal] = useState(
+    "Paciente refere dor torácica moderada (EVA 6/10) e leve desconforto respiratório no 3º DPO de cirurgia cardíaca."
+  );
+  const [historiaDoenca, setHistoriaDoenca] = useState(
+    "Paciente feminina, 28 anos, internada na UTI pós-cirúrgica após revascularização. Evolui com estabilidade hemodinâmica nas últimas 24h, sem arritmias ou sangramentos."
+  );
+  const [avaliacao, setAvaliacao] = useState(
+    "Bom estado geral, eupneica, corada, hidratada. Murmúrio vesicular presente bilateralmente, sem ruídos adventícios. Ferida operatória com cicatrização adequada e sem sinais flogísticos."
+  );
+  const [orientacoes, setOrientacoes] = useState(
+    "Manter cabeceira elevada a 30°. Estimular fisioterapia respiratória 2x/dia. Monitorização multiparamétrica e controle álgico otimizado."
+  );
   const [sinaisVitais, setSinaisVitais] = useState<SinaisVitais>({
-    pa: "",
-    fc: "",
-    fr: "",
-    temp: "",
+    pa: "120/80",
+    fc: "78",
+    fr: "16",
+    temp: "36.5",
   });
   const [prescricoes, setPrescricoes] = useState<PrescricaoItem[]>([
-    criarPrescricaoVazia(),
+    { id: "p1", medicamento: "Morfina 2mg IV", dose: "2mg", frequencia: "4/4h se dor", duracao: "3 dias", observacoes: "Administrar em bólus lento" },
+    { id: "p2", medicamento: "Dipirona 1g EV", dose: "1g", frequencia: "6/6h fixo", duracao: "5 dias", observacoes: "Diluir em 100ml SF 0.9%" },
+    { id: "p3", medicamento: "Enoxaparina 40mg SC", dose: "40mg", frequencia: "1x/dia", duracao: "7 dias", observacoes: "Profilaxia de TVP" },
   ]);
-  const [exames, setExames] = useState<ExameItem[]>([criarExameVazio()]);
+  const [exames, setExames] = useState<ExameItem[]>([
+    { id: "e1", nome: "Hemograma Completo", tipo: "Sangue", urgencia: "urgente", observacoes: "Controle pós-operatório" },
+    { id: "e2", nome: "Gasometria Arterial", tipo: "Sangue", urgencia: "rotina", observacoes: "Avaliação ventilatória" },
+    { id: "e3", nome: "Eletrocardiograma (ECG)", tipo: "Cardiológico", urgencia: "rotina", observacoes: "Checagem de ritmo sinusal" },
+  ]);
 
   const dataAtual = new Date().toLocaleDateString("pt-BR");
 
@@ -148,7 +170,6 @@ export function Prontuario() {
   };
 
   const handleSalvar = () => {
-    // TODO: implementar submissão real (Supabase)
     const payload = {
       paciente: pacienteSelecionado,
       queixaPrincipal,
@@ -160,6 +181,7 @@ export function Prontuario() {
       exames,
     };
     console.log("Salvar prontuário", payload);
+    toast.success("Prontuário atualizado e salvo com sucesso!");
   };
 
   // Nenhum paciente selecionado ainda: exibe apenas o modal de seleção

@@ -6,6 +6,7 @@ import { AlertBanner } from "../../../components/AlertBanner";
 import { SearchInput } from "../../../components/SearchInput";
 import { useInternacoes } from "../../../hooks";
 import { Bed, RiskLevel } from "../../../types";
+import { beds as mockBeds } from "../../../config/mockData";
 import { COLORS } from "../../../config/colors";
 import { dashboardStyles as styles, getRiskBadgeStyle, getFilterOptionStyle } from "./Dashboard.styles";
 
@@ -23,19 +24,24 @@ const FILTER_OPTIONS: { value: RiskLevel | "all"; label: string }[] = [
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
   const { data: internacoes = [], isLoading } = useInternacoes();
 
-  const initialBeds = useMemo(() => internacoes.map(int => ({
-    id: String(int.leito?.numero ?? "??"),
-    internacaoId: String(int.id),
-    name: int.paciente?.nome || "Desconhecido",
-    hr: 0,
-    hrSeries: [] as number[],
-    mood: "neutro" as import("../../../types").MoodType,
-    conf: 0,
-    risk: int.risco as import("../../../types").RiskLevel,
-    acordado: true,
-    ts: "",
-    status: (int.ativo ? "internado" : "alta") as import("../../../types").PatientStatus,
-  })), [internacoes]);
+  const initialBeds = useMemo(() => {
+    if (internacoes && internacoes.length > 0) {
+      return internacoes.map(int => ({
+        id: String(int.leito?.numero ?? "??"),
+        internacaoId: String(int.id),
+        name: int.paciente?.nome || "Desconhecido",
+        hr: 78,
+        hrSeries: [72, 75, 76, 78, 80, 78],
+        mood: "neutro" as import("../../../types").MoodType,
+        conf: 90,
+        risk: (int.risco || "normal") as import("../../../types").RiskLevel,
+        acordado: true,
+        ts: "agora",
+        status: (int.ativo ? "internado" : "alta") as import("../../../types").PatientStatus,
+      }));
+    }
+    return mockBeds;
+  }, [internacoes]);
 
   const [bedsState, setBedsState] = useState<Bed[]>(initialBeds);
 

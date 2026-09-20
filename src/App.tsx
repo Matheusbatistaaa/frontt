@@ -48,7 +48,9 @@ export default function PerceptAIPrototype() {
 
   const navigate = async (key: string) => {
     if (key === "login") {
-      await signOut();
+      try {
+        await signOut();
+      } catch {}
       setLoggedIn(false);
       return;
     }
