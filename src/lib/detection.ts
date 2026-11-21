@@ -14,6 +14,35 @@ export interface DetectionResponse {
   Timestamp: string;
 }
 
+export interface TestAiResponse {
+  estadoFisiologico: string;
+  confiancaFisiologica: number;
+  estadoEmocional: string | null;
+  confiancaEmocional: number | null;
+  allProbabilities: Record<string, number>;
+}
+
+export async function testAi(
+  base64Image: string
+): Promise<TestAiResponse> {
+  const response = await fetch(`${BACKEND_URL}/api/test-ai`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      image_base64: base64Image,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+    throw new Error(error.message || `Erro ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function detectEmotion(
   base64Image: string,
   internacaoId: string

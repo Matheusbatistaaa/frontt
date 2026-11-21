@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Loader2,
+  X,
+  Terminal,
 } from "lucide-react";
 import {
   LineChart,
@@ -23,11 +25,8 @@ import { tremorEvents, moodMeta, clinicalData, vitalsData } from "../../config/m
 import { useSinaisVitais, useExpressoes } from "../../hooks";
 import { infoIAStyles as styles } from "./InfoIA.styles";
 import { COLORS } from "../../config/colors";
-import {
-  detectEmotion,
-  captureFrame,
-  dataUrlToBase64,
-} from "../../lib/detection";
+import { detectEmotion, captureFrame, dataUrlToBase64 } from "../../lib/detection";
+import { TestAiModal } from "../../components/modals/TestAiModal";
 
 interface InfoIAProps {
   bed: Bed;
@@ -51,7 +50,9 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
   const [detectedEmotion, setDetectedEmotion] = useState<string | null>(null);
   const [detectedConf, setDetectedConf] = useState<number>(0);
   const [lastDetectionTs, setLastDetectionTs] = useState<string>("");
+  const [showTestAiModal, setShowTestAiModal] = useState(false);
 
+  
   const stopCamera = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -160,12 +161,26 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
   const LiveMoodIcon = liveMood?.icon ?? null;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden relative">
       <TopBar
         title={`${bed.name} (Leito ${bed.id})`}
         subtitle="Análise IA e histórico clínico"
         onBack={onBack}
       />
+
+      {/* Floating Testar IA button - top right */}
+      <button
+        onClick={() => setShowTestAiModal(true)}
+        className="absolute top-20 right-8 z-40 px-4 py-2 text-sm font-semibold rounded-full flex items-center gap-2 shadow-lg transition-all hover:scale-105"
+        style={{
+          background: COLORS.orange,
+          color: COLORS.card,
+          boxShadow: `0 4px 12px ${COLORS.orange}40`,
+        }}
+        title="Testar IA com imagem"
+      >
+        <Terminal size={14} /> Testar IA
+      </button>
 
       <div className="flex-1 grid grid-cols-2 gap-6 px-8 py-7 overflow-hidden">
         {/* ── ESQUERDA: gráficos e histórico ── */}
@@ -259,7 +274,7 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
               </p>
               {/* Indicador de status */}
               <div className="flex items-center gap-1.5">
-                {cameraState === "active" && (
+                  {cameraState === "active" && (
                   <>
                     <span
                       className="w-2 h-2 rounded-full animate-pulse"
@@ -493,6 +508,7 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
           </div>
         </div>
       </div>
+      <TestAiModal open={showTestAiModal} onClose={() => setShowTestAiModal(false)} />
     </div>
   );
 };

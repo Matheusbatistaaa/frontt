@@ -35,6 +35,11 @@ export const Calendario: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("semana");
   const [referenceDate, setReferenceDate] = useState(new Date());
   const [localEvents, setLocalEvents] = useState<EventoCalendario[]>(calendarEvents);
+  const [draggedEvent, setDraggedEvent] = useState<EventoCalendario | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragTargetDate, setDragTargetDate] = useState<Date | null>(null);
+  const [doubleClickEvent, setDoubleClickEvent] = useState<EventoCalendario | null>(null);
 
   const { data: supabaseEvents, refetch } = useCalendario();
 
@@ -55,6 +60,84 @@ export const Calendario: React.FC = () => {
 
   const handleNext = () => {
     setReferenceDate((prev) => (viewMode === "semana" ? addDays(prev, 7) : addMonths(prev, 1)));
+  };
+
+  // Handler para arrastar eventos
+  const handleMouseDown = (mouseEvent: React.MouseEvent, evento: EventoCalendario) => {
+    setDraggedEvent(evento);
+    setIsDragging(true);
+    setDragOffset({
+      x: mouseEvent.clientX,
+      y: mouseEvent.clientY,
+    });
+    setDragTargetDate(null);
+    mouseEvent.preventDefault();
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (!isDragging || !draggedEvent) return;
+
+    const dx = event.clientX - dragOffset.x;
+    const dy = event.clientY - dragOffset.y;
+
+    // Only start dragging after a minimum distance
+    if (Math.sqrt(dx * dx + dy * dy) < 5) return;
+
+    // Find which day was targeted
+    const targetDay = days.find(day => {
+      const daySelector = `.day-${toISODate(day)}`;
+      const dayElement = document.querySelector(daySelector);
+      if (!dayElement) return false;
+      const rect = dayElement.getBoundingClientRect();
+      return event.clientY >= rect.top && event.clientY <= rect.bottom;
+    });
+
+    setDragTargetDate(targetDay ?? null);
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging || !draggedEvent) return;
+
+    const targetDate = dragTargetDate;
+    if (!targetDate) {
+      setIsDragging(false);
+      setDraggedEvent(null);
+      return;
+    }
+
+    // Move the event to the target day
+    const targetIso = toISODate(targetDate);
+    const eventToMove = events.find(e => e.data === draggedEvent.data && e.titulo === draggedEvent.titulo);
+
+    if (eventToMove) {
+      // Remove from original day
+      const updatedEvents = events.filter(e => !(e.data === draggedEvent.data && e.titulo === draggedEvent.titulo));
+      // Add to target day (avoid duplicates)
+      const alreadyExists = updatedEvents.some(e => e.data === targetIso && e.titulo === draggedEvent.titulo);
+      if (!alreadyExists) {
+        updatedEvents.push({
+          ...eventToMove,
+          data: targetIso,
+        });
+      }
+      setLocalEvents(updatedEvents as EventoCalendario[]);
+      toast.success(`Evento movido para ${formatDayLabel(targetDate)}`);
+    }
+
+    setIsDragging(false);
+    setDraggedEvent(null);
+    setDragTargetDate(null);
+  };
+
+  // Handler para duplo clique - abrir modal de edi??o
+  const handleDoubleClick = (evento: EventoCalendario) => {
+    setDoubleClickEvent(evento);
+    setModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setDoubleClickEvent(null);
+    setModalOpen(false);
   };
 
   const handleSaveEvento = async (data: NovoEventoFormData) => {
@@ -166,7 +249,15 @@ export const Calendario: React.FC = () => {
                   .map((e, j) => {
                     const meta = eventTypeMeta[e.tipo as TipoEventoKey]!;
                     return (
-                      <div key={j} className="p-2 border-l-[3px]" style={getEventCardStyle(meta.color)}>
+                      <div
+                        key={j}
+                        className="p-2 border-l-[3px]"
+                        style={getEventCardStyle(meta.color)}
+                        onMouseDown={(mouseEvent) => handleMouseDown(mouseEvent, e)}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onDoubleClick={() => handleDoubleClick(e as EventoCalendario)}
+                      >
                         <p className="mono text-[10.5px] font-semibold" style={styles.eventTime(meta.color)}>
                           {e.hora}
                         </p>
