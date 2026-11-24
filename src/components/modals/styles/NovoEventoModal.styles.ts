@@ -37,7 +37,6 @@ export const novoEventoModalStyles = {
   },
 };
 
-// Estilos dinâmicos (dependem do tipo/estado selecionado)
 export const getTypeChipStyle = (color: string, selected: boolean) => ({
   background: selected ? `${color}1F` : COLORS.bg,
   color: selected ? color : COLORS.slate,

@@ -1,7 +1,5 @@
 import { supabase } from './supabase';
 
-// String vazia = mesma origem (o dev server faz proxy de /api para o backend),
-// o que mantém tudo funcionando também através do túnel Cloudflared.
 const BACKEND_URL = import.meta.env['VITE_BACKEND_URL'] ?? '';
 
 export interface DetectionRequest {

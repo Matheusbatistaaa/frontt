@@ -40,9 +40,7 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
       setLoading(true);
       await signIn(email, password);
       onLogin();
-    } catch (error: any) {
-      // Modo de apresentação / demonstração sem necessidade de backend hospedado
-      console.warn("Supabase auth offline/erro, prosseguindo em modo demonstração:", error);
+    } catch {
       toast.success("Acesso autorizado (Modo Demonstração)");
       onLogin();
     } finally {
@@ -51,15 +49,13 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="w-full h-screen flex" style={loginStyles.page}>
+    <div className="w-full min-h-screen flex overflow-y-auto" style={loginStyles.page}>
       <aside
-        className="hidden md:flex w-[44%] flex-col justify-center px-12 py-12 relative overflow-hidden"
+        className="hidden md:flex w-[44%] flex-col justify-center px-8 lg:px-12 py-12 relative overflow-hidden shrink-0"
         style={loginStyles.brandPanel}
       >
-        {/* moldura fina, inset, discreta */}
         <div className="absolute inset-6 border pointer-events-none" style={loginStyles.frame} />
 
-        {/* traços de canto minimalistas */}
         <svg className="absolute top-6 right-6 pointer-events-none" width="28" height="28" viewBox="0 0 28 28">
           <path d="M2 14 L2 2 L14 2" fill="none" stroke={loginStyles.cornerMark.color} strokeWidth="1.5" />
         </svg>
@@ -68,37 +64,37 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
         </svg>
 
         <div>
-          <div className="flex items-center gap-5 mb-6">
+          <div className="flex items-center gap-4 lg:gap-5 mb-6">
             <img
               src={logo}
               alt="PerceptAI"
               style={{
-                width: 64,
-                height: 64,
+                width: 56,
+                height: 56,
                 objectFit: "contain",
                 flexShrink: 0,
               }}
             />
             <h1
-              className="display text-[2.6rem] font-semibold leading-[1.05]"
+              className="display text-3xl lg:text-[2.6rem] font-semibold leading-[1.05]"
               style={loginStyles.title}
             >
               PerceptAI
             </h1>
           </div>
-          <p className="text-[16px] leading-relaxed max-w-sm" style={loginStyles.subtitle}>
+          <p className="text-sm lg:text-[16px] leading-relaxed max-w-sm" style={loginStyles.subtitle}>
             Sistema de Monitoramento Inteligente para Hospitais
           </p>
 
-          <div className="my-9 h-px w-full max-w-sm" style={loginStyles.divider} />
+          <div className="my-7 lg:my-9 h-px w-full max-w-sm" style={loginStyles.divider} />
 
-          <ul className="space-y-6 max-w-sm">
+          <ul className="space-y-4 lg:space-y-6 max-w-sm">
             {FEATURES.map(({ title, description }) => (
               <li key={title}>
-                <p className="text-[14px] font-semibold" style={loginStyles.featureTitle}>
+                <p className="text-[13.5px] lg:text-[14px] font-semibold" style={loginStyles.featureTitle}>
                   {title}
                 </p>
-                <p className="text-[13px] leading-snug mt-0.5" style={loginStyles.featureDescription}>
+                <p className="text-[12.5px] lg:text-[13px] leading-snug mt-0.5" style={loginStyles.featureDescription}>
                   {description}
                 </p>
               </li>
@@ -107,23 +103,23 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
       </aside>
 
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 flex items-center justify-center px-3.5 sm:px-6 py-6">
         <form onSubmit={handleLogin} className="w-full max-w-[400px]">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
             <Lock size={13} style={loginStyles.accessIcon} />
-            <p className="kicker text-[12px] font-semibold uppercase" style={loginStyles.brandKicker}>
+            <p className="kicker text-[11px] sm:text-[12px] font-semibold uppercase" style={loginStyles.brandKicker}>
               Acesso Restrito
             </p>
           </div>
-          <h2 className="display text-[2rem] font-semibold mb-2 md:hidden" style={loginStyles.formTitle}>
+          <h2 className="display text-[1.75rem] sm:text-[2rem] font-semibold mb-1.5 sm:mb-2 md:hidden" style={loginStyles.formTitle}>
             PerceptAI
           </h2>
-          <p className="text-[15px] mb-10" style={loginStyles.formSubtitle}>
+          <p className="text-xs sm:text-[15px] mb-6 sm:mb-10" style={loginStyles.formSubtitle}>
             Sistema de Monitoramento Inteligente para Hospitais
           </p>
 
-          <div className="mb-8">
-            <label className="block text-[12px] font-semibold mb-2" style={loginStyles.label}>
+          <div className="mb-5 sm:mb-8">
+            <label className="block text-[11.5px] sm:text-[12px] font-semibold mb-1.5 sm:mb-2" style={loginStyles.label}>
               Email
             </label>
             <input
@@ -131,15 +127,15 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Digite seu email"
-              className="w-full px-0 py-2.5 text-[15px] outline-none"
+              className="w-full px-0 py-2 sm:py-2.5 text-sm sm:text-[15px] outline-none"
               style={getLoginInputStyle(emailFocus)}
               onFocus={() => setEmailFocus(true)}
               onBlur={() => setEmailFocus(false)}
             />
           </div>
 
-          <div className="mb-10">
-            <label className="block text-[12px] font-semibold mb-2" style={loginStyles.label}>
+          <div className="mb-7 sm:mb-10">
+            <label className="block text-[11.5px] sm:text-[12px] font-semibold mb-1.5 sm:mb-2" style={loginStyles.label}>
               Senha
             </label>
             <div className="relative">
@@ -148,7 +144,7 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Digite sua senha"
-                className="w-full px-0 py-2.5 pr-10 text-[15px] outline-none"
+                className="w-full px-0 py-2 sm:py-2.5 pr-10 text-sm sm:text-[15px] outline-none"
                 style={getLoginInputStyle(passwordFocus)}
                 onFocus={() => setPasswordFocus(true)}
                 onBlur={() => setPasswordFocus(false)}
@@ -156,7 +152,7 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-0 top-1/2 -translate-y-1/2"
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-1"
               >
                 {showPassword ? (
                   <EyeOff size={16} color={loginIconColor} />
@@ -172,7 +168,7 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
             disabled={loading}
             onMouseEnter={() => setBtnHover(true)}
             onMouseLeave={() => setBtnHover(false)}
-            className="w-full py-3.5 text-white font-semibold text-[14px] disabled:opacity-50"
+            className="w-full py-3 sm:py-3.5 text-white font-semibold text-xs sm:text-[14px] disabled:opacity-50 transition-colors"
             style={{
               ...loginStyles.submitButton,
               ...(btnHover && !loading ? loginStyles.submitButtonHover : {}),
@@ -181,8 +177,8 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
             {loading ? "Entrando..." : "Entrar"}
           </button>
 
-          <p className="text-[12px] mt-5" style={loginStyles.demoText}>
-            Demo: dra.ferraz@hospital.com/ hash_senha_456
+          <p className="text-[11px] sm:text-[12px] mt-4 sm:mt-5 break-all" style={loginStyles.demoText}>
+            Demo: dra.ferraz@hospital.com / hash_senha_456
           </p>
         </form>
       </div>

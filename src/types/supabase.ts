@@ -61,7 +61,7 @@ export interface Database {
           internacao_id: string;
           mood: 'dor' | 'medo' | 'tristeza' | 'enjoo' | 'sono' | 'dormindo' | 'acordado' | 'neutro';
           confianca: number;
-          intensidade: number; // para cálculo de dor, por exemplo
+          intensidade: number; 
           registrado_em: string;
         };
       };
@@ -133,5 +133,4 @@ export interface Database {
   };
 }
 
-// Helpers type para facilitar as queries e componentes
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];

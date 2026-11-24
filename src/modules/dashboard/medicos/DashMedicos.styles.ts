@@ -25,7 +25,6 @@ export const dashMedicosStyles = {
   },
 };
 
-// Estilo dinâmico (depende do risco do leito)
 export const getRiskBadgeStyle = (risk: string) => ({
   background: risk === "critical" ? COLORS.redSoft : COLORS.orangeSoft,
   color: risk === "critical" ? COLORS.red : COLORS.orange,

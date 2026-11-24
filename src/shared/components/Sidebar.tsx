@@ -14,7 +14,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ current, onNavigate }) => {
       className="hidden md:flex w-[248px] flex-col overflow-hidden relative"
       style={{ background: COLORS.orangePainel }}
     >
-      {/* moldura fina, mesmo padrão do login */}
+      
       <div
         className="absolute inset-3 border pointer-events-none"
         style={{ borderColor: COLORS.card, borderWidth: "1px", opacity: 0.5 }}

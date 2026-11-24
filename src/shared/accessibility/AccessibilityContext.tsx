@@ -38,15 +38,15 @@ const FONT_SCALE: Record<FontSize, string> = {
 
 interface AccessibilityContextValue {
   prefs: AccessibilityPrefs;
-  /** Preferências ainda não salvas (estado do formulário) */
+  
   draft: AccessibilityPrefs;
   setDraft: (patch: Partial<AccessibilityPrefs>) => void;
   dirty: boolean;
   save: () => void;
   reset: () => void;
-  /** Fala/anuncia um texto quando o leitor de tela está ativo (force ignora a preferência) */
+  
   announce: (message: string, opts?: { force?: boolean }) => void;
-  /** Vibra o dispositivo quando alertas por vibração estão ativos (force ignora a preferência) */
+  
   vibrate: (pattern?: number | number[], opts?: { force?: boolean }) => void;
 }
 
@@ -76,14 +76,12 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
     prefsRef.current = prefs;
   }, [prefs]);
 
-  // Carrega do navegador após a hidratação (evita mismatch de SSR)
   useEffect(() => {
     const stored = readStored();
     setPrefs(stored);
     setDraftState(stored);
   }, []);
 
-  // Aplica as preferências à interface inteira
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
@@ -127,20 +125,14 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
     prefsRef.current = draft;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-    } catch {
-      /* armazenamento indisponível */
-    }
-  }, [draft]);
+    } catch {}  }, [draft]);
 
   const reset = useCallback(() => {
     setPrefs(DEFAULT_PREFS);
     setDraftState(DEFAULT_PREFS);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* armazenamento indisponível */
-    }
-  }, []);
+    } catch {}  }, []);
 
   const dirty = useMemo(
     () => JSON.stringify(prefs) !== JSON.stringify(draft),

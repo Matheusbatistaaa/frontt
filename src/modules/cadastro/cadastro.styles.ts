@@ -45,7 +45,6 @@ export const cadastroStyles = {
   },
 };
 
-// Estilo dinâmico (depende do estado podeSubmeter)
 export const getSubmitButtonStyle = (podeSubmeter: boolean) => ({
   background: podeSubmeter ? COLORS.orange : COLORS.orangeDark,
   opacity: podeSubmeter ? 1 : 0.55,

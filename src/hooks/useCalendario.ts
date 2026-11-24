@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { EventoCalendario } from '../modules/calendario/calendario.types';
 
 export function useCalendario() {
-  return useQuery({
+  return useQuery<EventoCalendario[]>({
     queryKey: ['calendario_eventos'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -13,16 +14,20 @@ export function useCalendario() {
         console.error('[useCalendario] Supabase error:', error);
         throw error;
       }
-      console.log('[useCalendario] Data loaded:', data?.length ?? 0, 'events');
-      // Mapear colunas do banco para o formato esperado pelo frontend
+
       return (data ?? []).map((row: any) => {
-        const inicio = new Date(row.data_hora_inicio);
+        const rawDate = row.data_inicio || row.data_hora_inicio || row.criado_em || new Date().toISOString();
+        const inicio = new Date(rawDate);
+        const validDate = isNaN(inicio.getTime()) ? new Date() : inicio;
+
         return {
-          id: row.id,
-          data: inicio.toISOString().split('T')[0],
-          hora: inicio.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          tipo: row.tipo,
-          titulo: row.titulo,
+          id: String(row.id),
+          data: validDate.toISOString().split('T')[0] ?? '',
+          hora: validDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          tipo: row.tipo || 'consulta',
+          titulo: row.titulo || 'Evento',
+          descricao: row.descricao || '',
+          dataHoraFim: row.data_hora_fim,
         };
       });
     },

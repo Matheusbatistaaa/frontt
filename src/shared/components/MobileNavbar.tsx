@@ -11,41 +11,44 @@ interface MobileNavbarProps {
 }
 
 export const MobileNavbar: React.FC<MobileNavbarProps> = ({ current, onNavigate, isOpen, onToggle }) => {
-  const filteredItems = navItems.filter(item => item.key !== "login");
+  const filteredItems = navItems.filter((item) => item.key !== "login");
 
   return (
     <>
       <div
-        className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4"
+        className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-3 sm:px-4"
         style={{ background: COLORS.orangePainel }}
       >
-        <div className="flex items-center gap-2">
-          <button onClick={onToggle} className="p-2" style={{ color: COLORS.card }}>
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <button onClick={onToggle} className="p-1.5 sm:p-2 shrink-0" style={{ color: COLORS.card }}>
             {isOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <span className="display text-[1.15rem] font-semibold" style={{ color: COLORS.card }}>
+          <span className="display text-[1.05rem] sm:text-[1.15rem] font-semibold truncate" style={{ color: COLORS.card }}>
             PerceptAI
           </span>
         </div>
-        <span className="kicker" style={{ color: COLORS.card }}>
-          {filteredItems.find(i => i.key === current)?.label || ""}
+        <span className="kicker text-[10px] sm:text-xs truncate ml-2" style={{ color: COLORS.card }}>
+          {filteredItems.find((i) => i.key === current)?.label || ""}
         </span>
       </div>
 
       {isOpen && (
         <div
-          className="md:hidden fixed top-14 left-0 bottom-0 z-50 w-[270px] flex flex-col"
+          className="md:hidden fixed top-14 left-0 bottom-0 z-50 w-[min(260px,82vw)] flex flex-col shadow-2xl"
           style={{ background: COLORS.orangePainel }}
         >
-          <nav className="flex-1 overflow-y-auto px-3 py-4">
-            {filteredItems.map(item => {
+          <nav className="flex-1 overflow-y-auto px-2.5 sm:px-3 py-3 sm:py-4">
+            {filteredItems.map((item) => {
               const isActive = current === item.key;
               const Icon = item.icon;
               return (
                 <button
                   key={item.key}
-                  onClick={() => { onNavigate(item.key); onToggle(); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 mb-1 text-[13.5px] text-left"
+                  onClick={() => {
+                    onNavigate(item.key);
+                    onToggle();
+                  }}
+                  className="w-full flex items-center gap-2.5 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 mb-1 text-[13px] sm:text-[13.5px] text-left rounded"
                   style={{
                     background: isActive ? "rgba(255,255,255,0.16)" : "transparent",
                     color: COLORS.card,
@@ -53,19 +56,19 @@ export const MobileNavbar: React.FC<MobileNavbarProps> = ({ current, onNavigate,
                     opacity: isActive ? 1 : 0.75,
                   }}
                 >
-                  <Icon size={16} strokeWidth={1.75} />
-                  {item.label}
+                  <Icon size={16} strokeWidth={1.75} className="shrink-0" />
+                  <span className="truncate">{item.label}</span>
                 </button>
               );
             })}
           </nav>
-          <div className="px-3 py-4" style={{ borderTop: `1px solid rgba(255,255,255,0.16)` }}>
+          <div className="px-2.5 sm:px-3 py-3 sm:py-4" style={{ borderTop: `1px solid rgba(255,255,255,0.16)` }}>
             <button
               onClick={() => onNavigate("login")}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-[13.5px] font-medium text-left"
+              className="w-full flex items-center gap-2.5 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 text-[13px] sm:text-[13.5px] font-medium text-left"
               style={{ color: COLORS.card, opacity: 0.85 }}
             >
-              <LogOut size={16} strokeWidth={1.75} />
+              <LogOut size={16} strokeWidth={1.75} className="shrink-0" />
               Sair
             </button>
           </div>

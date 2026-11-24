@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   Activity,
   Camera,
   CameraOff,
-  Thermometer,
   AlertTriangle,
-  CheckCircle,
   Loader2,
-  X,
   Terminal,
+  BedSingle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   LineChart,
@@ -20,26 +20,52 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TopBar } from "../../shared/components";
-import { Bed, MoodType } from "../../types";
-import { tremorEvents, moodMeta, clinicalData, vitalsData } from "../../config/mockData";
-import { useSinaisVitais, useExpressoes } from "../../hooks";
+import { Bed } from "../../types";
+import { tremorEvents, moodMeta, clinicalData, vitalsData, beds as mockBeds } from "../../config/mockData";
+import { useSinaisVitais, useExpressoes, useInternacoes } from "../../hooks";
 import { infoIAStyles as styles } from "./InfoIA.styles";
 import { COLORS } from "../../config/colors";
 import { detectEmotion, captureFrame, dataUrlToBase64 } from "../../lib/detection";
 import { TestAiModal } from "../../components/modals/TestAiModal";
-
-interface InfoIAProps {
-  bed: Bed;
-  onBack: () => void;
-}
+import { InfoIAProps } from "./info-ia.types";
 
 type CameraState = "idle" | "starting" | "active" | "error";
 
-export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
-  const { data: vitals = [] } = useSinaisVitais(bed.internacaoId);
-  const { data: expressions = [] } = useExpressoes(bed.internacaoId);
+export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
+  const [currentBed, setCurrentBed] = useState<Bed>(bed);
 
-  // ─── Câmera ───────────────────────────────────────────────────────────────
+  const { data: internacoes = [] } = useInternacoes();
+
+  const availableBeds = useMemo(() => {
+    if (internacoes && internacoes.length > 0) {
+      const dbBeds = internacoes.map((int: any) => ({
+        id: String(int.leito?.numero ?? "??"),
+        internacaoId: String(int.id),
+        name: int.paciente?.nome || "Desconhecido",
+        hr: 78,
+        hrSeries: [72, 75, 76, 78, 80, 78],
+        mood: "neutro" as import("../../types").MoodType,
+        conf: 90,
+        risk: (int.risco || "normal") as import("../../types").RiskLevel,
+        acordado: true,
+        ts: "agora",
+        status: (int.ativo ? "internado" : "alta") as import("../../types").PatientStatus,
+      }));
+      if (!dbBeds.some((b) => b.id === currentBed.id)) {
+        return [currentBed, ...dbBeds];
+      }
+      return dbBeds;
+    }
+    return mockBeds;
+  }, [internacoes, currentBed]);
+
+  useEffect(() => {
+    setCurrentBed(bed);
+  }, [bed]);
+
+  const { data: vitals = [] } = useSinaisVitais(currentBed.internacaoId);
+  const { data: expressions = [] } = useExpressoes(currentBed.internacaoId);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -48,11 +74,10 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
   const [cameraError, setCameraError] = useState<string>("");
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectedEmotion, setDetectedEmotion] = useState<string | null>(null);
-  const [detectedConf, setDetectedConf] = useState<number>(0);
-  const [lastDetectionTs, setLastDetectionTs] = useState<string>("");
+  const [, setDetectedConf] = useState<number>(0);
+  const [, setLastDetectionTs] = useState<string>("");
   const [showTestAiModal, setShowTestAiModal] = useState(false);
 
-  
   const stopCamera = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -69,27 +94,51 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
     setIsDetecting(false);
   }, []);
 
+  const handleSwitchBed = (newBed: Bed) => {
+    if (cameraState === "active" || cameraState === "starting") {
+      stopCamera();
+    }
+    setCurrentBed(newBed);
+    onSelectBed?.(newBed);
+  };
+
+  const handlePrevBed = () => {
+    const currentIndex = availableBeds.findIndex((b) => b.id === currentBed.id);
+    if (currentIndex <= 0) {
+      handleSwitchBed(availableBeds[availableBeds.length - 1]!);
+    } else {
+      handleSwitchBed(availableBeds[currentIndex - 1]!);
+    }
+  };
+
+  const handleNextBed = () => {
+    const currentIndex = availableBeds.findIndex((b) => b.id === currentBed.id);
+    if (currentIndex < 0 || currentIndex >= availableBeds.length - 1) {
+      handleSwitchBed(availableBeds[0]!);
+    } else {
+      handleSwitchBed(availableBeds[currentIndex + 1]!);
+    }
+  };
+
   const runDetection = useCallback(async () => {
-    if (!videoRef.current || !bed.internacaoId || isDetecting) return;
+    if (!videoRef.current || !currentBed.internacaoId || isDetecting) return;
     const video = videoRef.current;
-    if (video.readyState < 2) return; // vídeo ainda não está pronto
+    if (video.readyState < 2) return;
 
     try {
       setIsDetecting(true);
       const dataUrl = await captureFrame(video);
       const base64 = dataUrlToBase64(dataUrl);
-      const result = await detectEmotion(base64, bed.internacaoId);
+      const result = await detectEmotion(base64, currentBed.internacaoId);
       setDetectedEmotion(result.Emotion);
       setDetectedConf(Math.round(result.Confidence * 100));
       setLastDetectionTs(
         new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
       );
-    } catch {
-      // Erros de rede ou backend não param a câmera — só silenciam essa rodada
-    } finally {
+    } catch {} finally {
       setIsDetecting(false);
     }
-  }, [bed.internacaoId, isDetecting]);
+  }, [currentBed.internacaoId, isDetecting]);
 
   const startCamera = useCallback(async () => {
     setCameraError("");
@@ -105,56 +154,40 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
         await videoRef.current.play();
       }
       setCameraState("active");
-      // Captura a cada 3 segundos
       intervalRef.current = setInterval(runDetection, 3000);
     } catch (err: any) {
-      const msg =
-        err?.name === "NotAllowedError"
-          ? "Permissão de câmera negada. Permita o acesso nas configurações do navegador."
-          : err?.name === "NotFoundError"
-          ? "Nenhuma câmera encontrada neste dispositivo."
-          : "Não foi possível acessar a câmera.";
-      setCameraError(msg);
       setCameraState("error");
+      setCameraError(
+        err?.name === "NotAllowedError"
+          ? "Permissão de câmera negada."
+          : "Não foi possível acessar a câmera."
+      );
     }
   }, [runDetection]);
 
-  // Limpa ao desmontar
-  useEffect(() => {
-    return () => stopCamera();
-  }, [stopCamera]);
+  const latestDbMood = expressions[0]?.mood;
+  const mood = moodMeta[latestDbMood ?? currentBed.mood] ?? moodMeta["neutro"]!;
+  const MoodIcon = mood.icon;
+  const currentConf = expressions[0]?.confianca
+    ? Math.round(expressions[0].confianca * 100)
+    : currentBed.conf;
 
-  // ─── Dados do Supabase com fallback para dados de demonstração ───────────
-  const vitalsChartData = (vitals && vitals.length > 0)
-    ? vitals.map((v: any) => ({
-        t: new Date(v.registrado_em).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        hr: Number(v.hr || 75),
-        spo2: Number(v.spo2 || 95),
+  const vitalsChartData = vitals.length > 0
+    ? vitals.map((v) => ({
+        t: new Date(v.registrado_em).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        hr: v.hr ?? 0,
+        spo2: v.spo2 ?? 0,
       }))
     : vitalsData;
 
-  const latestExpression = expressions[expressions.length - 1];
-  // Campo correto: mood (coluna real no Supabase)
-  const currentMood = (latestExpression?.mood ?? bed.mood ?? "dor") as MoodType;
-  const currentConf = latestExpression?.confianca ?? bed.conf ?? 92;
+  const clinical = clinicalData[currentBed.id] ?? {
+    idade: 0,
+    internacao: "Desconhecida",
+    diagnostico: "Sem dados",
+    medico: "Sem Médico",
+    spo2: 0,
+  };
 
-  const mood = moodMeta[currentMood] ?? moodMeta["dor"]!;
-  const MoodIcon = mood.icon;
-
-  const clinical: import("../../types").ClinicalData =
-    clinicalData[bed.id] ??
-    clinicalData["default"] ?? {
-      idade: 0,
-      internacao: "Desconhecida",
-      diagnostico: "Sem dados",
-      medico: "Sem Médico",
-      spo2: 0,
-    };
-
-  // Emoção detectada pela câmera em tempo real
   const liveMood = detectedEmotion
     ? (moodMeta[detectedEmotion] ?? moodMeta["neutro"]!)
     : null;
@@ -163,61 +196,126 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
       <TopBar
-        title={`${bed.name} (Leito ${bed.id})`}
+        title={`${currentBed.name} (Leito ${currentBed.id})`}
         subtitle="Análise IA e histórico clínico"
         onBack={onBack}
       />
 
-      {/* Floating Testar IA button - top right */}
-      <button
-        onClick={() => setShowTestAiModal(true)}
-        className="absolute top-20 right-8 z-40 px-4 py-2 text-sm font-semibold rounded-full flex items-center gap-2 shadow-lg transition-all hover:scale-105"
-        style={{
-          background: COLORS.orange,
-          color: COLORS.card,
-          boxShadow: `0 4px 12px ${COLORS.orange}40`,
-        }}
-        title="Testar IA com imagem"
+      <div
+        className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 sm:px-6 md:px-8 py-2.5 sm:py-3 bg-white border-b shrink-0"
+        style={{ borderColor: COLORS.line }}
       >
-        <Terminal size={14} /> Testar IA
-      </button>
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+            <BedSingle size={16} color={COLORS.orange} />
+            <span className="hidden sm:inline">Trocar Leito:</span>
+          </div>
 
-      <div className="flex-1 grid grid-cols-2 gap-6 px-8 py-7 overflow-hidden">
-        {/* ── ESQUERDA: gráficos e histórico ── */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handlePrevBed}
+              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center border rounded hover:bg-slate-50 text-slate-600 transition-colors"
+              title="Leito anterior"
+              style={{ borderColor: COLORS.line }}
+            >
+              <ChevronLeft size={15} />
+            </button>
+
+            <select
+              value={currentBed.id}
+              onChange={(e) => {
+                const selected = availableBeds.find((b) => b.id === e.target.value);
+                if (selected) handleSwitchBed(selected);
+              }}
+              className="h-7 sm:h-8 px-2 text-xs sm:text-[13px] font-semibold border rounded bg-white text-slate-800 outline-none cursor-pointer hover:border-slate-400 transition-colors max-w-[190px] sm:max-w-[260px] truncate"
+              style={{ borderColor: COLORS.line }}
+            >
+              {availableBeds.map((b) => (
+                <option key={b.id} value={b.id}>
+                  Leito {b.id} — {b.name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleNextBed}
+              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center border rounded hover:bg-slate-50 text-slate-600 transition-colors"
+              title="Próximo leito"
+              style={{ borderColor: COLORS.line }}
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          <span
+            className="px-2 py-0.5 rounded text-[11px] font-semibold capitalize"
+            style={{
+              background:
+                currentBed.risk === "critical"
+                  ? `${COLORS.red}18`
+                  : currentBed.risk === "attention"
+                  ? `${COLORS.orange}18`
+                  : `${COLORS.green}18`,
+              color:
+                currentBed.risk === "critical"
+                  ? COLORS.red
+                  : currentBed.risk === "attention"
+                  ? COLORS.orange
+                  : COLORS.green,
+            }}
+          >
+            {currentBed.risk === "critical"
+              ? "Crítico"
+              : currentBed.risk === "attention"
+              ? "Atenção"
+              : "Estável"}
+          </span>
+        </div>
+
+        <button
+          onClick={() => setShowTestAiModal(true)}
+          className="h-7 sm:h-8 px-3 text-xs sm:text-[12.5px] font-semibold rounded flex items-center gap-1.5 text-white transition-opacity hover:opacity-90 ml-auto"
+          style={{ background: COLORS.orange }}
+          title="Testar IA com imagem"
+        >
+          <Terminal size={13} />
+          Testar IA
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-6 px-3 sm:px-6 md:px-8 py-4 sm:py-7 overflow-y-auto lg:overflow-hidden">
         <div className="flex flex-col gap-4 overflow-y-auto">
-          {/* Info do paciente */}
-          <div className="bg-white border p-4" style={styles.card}>
+          <div className="bg-white border p-3.5 sm:p-4" style={styles.card}>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs" style={styles.patientInfoLabel}>
                   Idade: {clinical.idade} | Internação: {clinical.internacao}
                 </p>
-                <p className="font-semibold text-sm" style={styles.patientInfoTitle}>
+                <p className="font-semibold text-xs sm:text-sm" style={styles.patientInfoTitle}>
                   {clinical.diagnostico}
                 </p>
                 <p className="text-xs mt-1" style={styles.patientInfoLabel}>
                   Médico: {clinical.medico}
                 </p>
               </div>
-              <div className="flex items-center gap-2 p-3 " style={styles.moodBox}>
+              <div className="flex items-center gap-2 p-2 sm:p-3" style={styles.moodBox}>
                 <MoodIcon size={16} color={mood.color} />
-                <span className="text-xs font-semibold" style={styles.moodText}>
+                <span className="text-[11px] sm:text-xs font-semibold" style={styles.moodText}>
                   {mood.label} ({currentConf}%)
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Gráfico de vitais */}
-          <div className="bg-white border p-4" style={styles.card}>
-            <p className="kicker mb-3" style={styles.chartTitle}>
+          <div className="bg-white border p-3.5 sm:p-4" style={styles.card}>
+            <p className="kicker mb-3 text-xs" style={styles.chartTitle}>
               Sinais Vitais (24h)
             </p>
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={vitalsChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={styles.chartGrid} />
-                <XAxis dataKey="t" stroke={styles.chartAxis} style={{ fontSize: 12 }} />
-                <YAxis stroke={styles.chartAxis} style={{ fontSize: 12 }} />
+                <XAxis dataKey="t" stroke={styles.chartAxis} style={{ fontSize: 11 }} />
+                <YAxis stroke={styles.chartAxis} style={{ fontSize: 11 }} />
                 <Tooltip contentStyle={styles.chartTooltip} />
                 <Line
                   type="monotone"
@@ -237,16 +335,15 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
             </ResponsiveContainer>
           </div>
 
-          {/* Eventos neurológicos */}
-          <div className="bg-white border p-4" style={styles.card}>
-            <p className="kicker mb-3" style={styles.chartTitle}>
+          <div className="bg-white border p-3.5 sm:p-4" style={styles.card}>
+            <p className="kicker mb-3 text-xs" style={styles.chartTitle}>
               Eventos Neurológicos
             </p>
             <div className="space-y-2">
               {tremorEvents.map((evt, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2 p-2 "
+                  className="flex items-center gap-2 p-2"
                   style={styles.eventRow}
                 >
                   <Activity size={14} color={styles.eventIconColor} />
@@ -264,17 +361,14 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
           </div>
         </div>
 
-        {/* ── DIREITA: câmera + detecção em tempo real ── */}
         <div className="flex flex-col gap-4 overflow-y-auto">
-          {/* Card da câmera */}
-          <div className="bg-white border p-4 flex flex-col gap-3" style={styles.card}>
+          <div className="bg-white border p-3.5 sm:p-4 flex flex-col gap-3" style={styles.card}>
             <div className="flex items-center justify-between">
-              <p className="kicker" style={styles.chartTitle}>
+              <p className="kicker text-xs" style={styles.chartTitle}>
                 Monitoramento em Tempo Real
               </p>
-              {/* Indicador de status */}
               <div className="flex items-center gap-1.5">
-                  {cameraState === "active" && (
+                {cameraState === "active" && (
                   <>
                     <span
                       className="w-2 h-2 rounded-full animate-pulse"
@@ -303,10 +397,9 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
               </div>
             </div>
 
-            {/* Vídeo */}
             <div
-              className="relative w-full overflow-hidden flex items-center justify-center"
-              style={{ aspectRatio: "4/3", minHeight: 200, background: COLORS.orangePainel }}
+              className="relative w-full overflow-hidden flex items-center justify-center rounded"
+              style={{ aspectRatio: "4/3", minHeight: 180, background: COLORS.orangePainel }}
             >
               <video
                 ref={videoRef}
@@ -316,18 +409,18 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
                 className="w-full h-full object-cover"
                 style={{
                   display: cameraState === "active" ? "block" : "none",
-                  transform: "scaleX(-1)", // espelha horizontalmente
+                  transform: "scaleX(-1)",
                 }}
               />
 
               {cameraState !== "active" && (
                 <div className="flex flex-col items-center gap-2" style={{ color: COLORS.orangeSoft }}>
                   {cameraState === "starting" ? (
-                    <Loader2 size={32} className="animate-spin" />
+                    <Loader2 size={28} className="animate-spin" />
                   ) : cameraState === "error" ? (
-                    <AlertTriangle size={32} color={COLORS.red} />
+                    <AlertTriangle size={28} color={COLORS.red} />
                   ) : (
-                    <CameraOff size={32} />
+                    <CameraOff size={28} />
                   )}
                   <span className="text-xs text-center px-4">
                     {cameraState === "error"
@@ -339,176 +432,57 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
                 </div>
               )}
 
-              {/* Overlay de detecção em curso */}
               {cameraState === "active" && isDetecting && (
-                <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50  px-2 py-1">
+                <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
                   <Loader2 size={12} color="white" className="animate-spin" />
                   <span className="text-[10px] text-white">Analisando…</span>
                 </div>
               )}
             </div>
 
-            {/* Botão iniciar / parar */}
-            <button
-              onClick={cameraState === "active" ? stopCamera : startCamera}
-              disabled={cameraState === "starting"}
-              className="w-full h-10 font-semibold text-[13px] flex items-center justify-center gap-2"
-              style={{
-                background: cameraState === "active" ? COLORS.redSoft : COLORS.orange,
-                color: cameraState === "active" ? COLORS.red : COLORS.card,
-                opacity: cameraState === "starting" ? 0.6 : 1,
-                cursor: cameraState === "starting" ? "not-allowed" : "pointer",
-              }}
-            >
-              {cameraState === "active" ? (
-                <>
-                  <CameraOff size={16} /> Parar monitoramento
-                </>
-              ) : cameraState === "starting" ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> Iniciando…
-                </>
+            <div className="flex items-center gap-2">
+              {cameraState === "idle" || cameraState === "error" ? (
+                <button
+                  onClick={startCamera}
+                  className="flex-1 py-2 sm:py-2.5 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                  style={{ background: COLORS.orange }}
+                >
+                  <Camera size={15} /> Ligar Câmera
+                </button>
               ) : (
-                <>
-                  <Camera size={16} /> Iniciar monitoramento
-                </>
+                <button
+                  onClick={stopCamera}
+                  className="flex-1 py-2 sm:py-2.5 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 border transition-colors hover:bg-black/5"
+                  style={{ borderColor: COLORS.line, color: COLORS.ink }}
+                >
+                  <CameraOff size={15} /> Desligar Câmera
+                </button>
               )}
-            </button>
+            </div>
 
-            {!bed.internacaoId && (
-              <p className="text-[11px] text-center" style={{ color: COLORS.orange }}>
-                Este leito não possui internação ativa — detecções não serão salvas.
-              </p>
-            )}
-          </div>
-
-          {/* Card de resultado da IA */}
-          <div className="bg-white border p-4 flex flex-col gap-3" style={styles.card}>
-            <p className="kicker" style={styles.chartTitle}>
-              Última Detecção IA
-            </p>
-
-            {liveMood && LiveMoodIcon ? (
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-12 h-12 flex items-center justify-center shrink-0"
-                  style={{ background: `${liveMood.color}18` }}
-                >
-                  <LiveMoodIcon size={24} color={liveMood.color} />
-                </div>
-                <div>
-                  <p
-                    className="display font-semibold text-[1.35rem]"
-                    style={{ color: liveMood.color }}
-                  >
-                    {liveMood.label}
-                  </p>
-                  <p className="text-xs" style={styles.patientInfoLabel}>
-                    Confiança: {detectedConf}% · {lastDetectionTs}
-                  </p>
-                </div>
-                <CheckCircle size={20} color={COLORS.orange} className="ml-auto shrink-0" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-12 h-12 flex items-center justify-center shrink-0"
-                  style={{ background: `${mood.color}18` }}
-                >
-                  <MoodIcon size={24} color={mood.color} />
-                </div>
-                <div>
-                  <p
-                    className="display font-semibold text-[1.35rem]"
-                    style={{ color: mood.color }}
-                  >
-                    {mood.label}
-                  </p>
-                  <p className="text-xs" style={styles.patientInfoLabel}>
-                    Confiança: {currentConf}% · Leitura contínua
+            {liveMood && LiveMoodIcon && (
+              <div
+                className="flex items-center gap-2 p-2.5 sm:p-3 border border-l-4"
+                style={{
+                  background: COLORS.bg,
+                  borderLeftColor: liveMood.color,
+                }}
+              >
+                <LiveMoodIcon size={18} color={liveMood.color} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold" style={{ color: COLORS.ink }}>
+                    IA Detectou: {liveMood.label}
                   </p>
                 </div>
               </div>
             )}
-
-            {/* Histórico de expressões */}
-            <div className="mt-1">
-              <p className="text-[11px] font-semibold mb-2" style={styles.patientInfoLabel}>
-                Histórico de Detecções
-              </p>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {(expressions.length > 0
-                  ? [...expressions].reverse().slice(0, 8)
-                  : [
-                      { mood: currentMood, confianca: currentConf, time: "há 2 min" },
-                      { mood: "neutro", confianca: 89, time: "há 18 min" },
-                      { mood: currentMood, confianca: 94, time: "há 45 min" },
-                      { mood: "sono", confianca: 96, time: "há 1h 20m" },
-                    ]
-                ).map((exp: any, i: number) => {
-                  const m = moodMeta[exp.mood as MoodType] ?? moodMeta["neutro"]!;
-                  const ExpIcon = m.icon;
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 text-[11px] px-2 py-1 "
-                      style={styles.eventRow}
-                    >
-                      <ExpIcon size={12} color={m.color} />
-                      <span style={{ color: m.color, fontWeight: 600 }}>{m.label}</span>
-                      <span className="ml-auto" style={styles.eventTime}>
-                        {exp.confianca}% {exp.time ? `· ${exp.time}` : ""}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Informações rápidas */}
-          <div className="bg-white border p-4" style={styles.card}>
-            <p className="kicker mb-3" style={styles.chartTitle}>
-              Resumo Clínico
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="p-2 " style={styles.eventRow}>
-                <p className="text-[10px] font-semibold" style={styles.patientInfoLabel}>
-                  SpO2
-                </p>
-                <p className="font-semibold text-sm" style={styles.patientInfoTitle}>
-                  {clinical.spo2}%
-                </p>
-              </div>
-              <div className="p-2 " style={styles.eventRow}>
-                <p className="text-[10px] font-semibold" style={styles.patientInfoLabel}>
-                  Dias internado
-                </p>
-                <p className="font-semibold text-sm" style={styles.patientInfoTitle}>
-                  {clinical.internacao}
-                </p>
-              </div>
-              <div className="p-2 " style={styles.eventRow}>
-                <p className="text-[10px] font-semibold" style={styles.patientInfoLabel}>
-                  Emoção atual (DB)
-                </p>
-                <p className="font-semibold text-sm" style={{ color: mood.color }}>
-                  {mood.label}
-                </p>
-              </div>
-              <div className="p-2 " style={styles.eventRow}>
-                <p className="text-[10px] font-semibold" style={styles.patientInfoLabel}>
-                  Confiança (DB)
-                </p>
-                <p className="font-semibold text-sm" style={styles.patientInfoTitle}>
-                  {currentConf}%
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
-      <TestAiModal open={showTestAiModal} onClose={() => setShowTestAiModal(false)} />
+
+      {showTestAiModal && (
+        <TestAiModal open={showTestAiModal} onClose={() => setShowTestAiModal(false)} />
+      )}
     </div>
   );
 };

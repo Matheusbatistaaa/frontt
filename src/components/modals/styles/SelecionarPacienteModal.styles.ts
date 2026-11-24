@@ -41,8 +41,6 @@ export const selecionarPacienteStyles = {
   chevronColor: COLORS.slateSoft,
 };
 
-// Estilos dinâmicos
-
 export const getPatientRowStyle = () => ({
   borderColor: COLORS.line,
   background: COLORS.card,

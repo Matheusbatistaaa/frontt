@@ -30,7 +30,6 @@ export const calendarioStyles = {
   },
 };
 
-// Estilos dinâmicos (dependem de dados/estado)
 export const getDayLabelStyle = (isToday: boolean) => ({
   color: isToday ? COLORS.orange : COLORS.slate,
 });

@@ -16,7 +16,7 @@ export function useExpressoes(internacaoId?: string) {
           event: 'INSERT',
           schema: 'public',
           table: 'expressoes_faciais',
-          // internacao_id é UUID/string — sem aspas o filtro Realtime funciona
+          
           filter: `internacao_id=eq.${internacaoId}`,
         },
         (payload) => {

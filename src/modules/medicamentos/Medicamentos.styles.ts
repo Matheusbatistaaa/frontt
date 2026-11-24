@@ -52,8 +52,6 @@ export const statusCfg = {
   atrasado: { label: "Atrasado", bg: COLORS.redSoft, fg: COLORS.red },
 };
 
-// Estilos dinâmicos (dependem do status/estado)
-
 export const getKpiIconBoxStyle = (accent: string) => ({
   background: `${accent}14`,
 });

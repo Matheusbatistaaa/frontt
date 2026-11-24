@@ -1,10 +1,13 @@
 export type TipoEventoKey = "plantao" | "procedimento" | "consulta";
 
 export interface EventoCalendario {
-  data: string; // ISO "2026-07-27"
+  id?: string;
+  data: string;
   hora: string;
   tipo: TipoEventoKey;
   titulo: string;
+  descricao?: string;
+  dataHoraFim?: string;
 }
 
 export interface TipoEvento {

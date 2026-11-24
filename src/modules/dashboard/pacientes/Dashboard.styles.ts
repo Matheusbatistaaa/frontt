@@ -47,13 +47,11 @@ export const dashboardStyles = {
   },
 };
 
-// Estilo dinâmico (depende do risco do paciente)
 export const getRiskBadgeStyle = (risco: string) => ({
   background: risco === "critical" ? COLORS.redSoft : COLORS.orangeSoft,
   color: risco === "critical" ? COLORS.red : COLORS.orange,
 });
 
-// Estilo dinâmico (depende se a opção do dropdown está ativa)
 export const getFilterOptionStyle = (isActive: boolean) => ({
   background: isActive ? COLORS.orangeSoft : "transparent",
   color: isActive ? COLORS.orange : COLORS.ink,

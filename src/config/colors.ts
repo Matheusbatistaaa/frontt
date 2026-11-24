@@ -15,7 +15,6 @@ export const COLORS = {
   greenSoft: "#E9F8EF",
 } as const;
 
-/** Mesma tinta da paleta, usada só em overlays. */
 export const INK_OVERLAY = "rgba(28, 36, 48, 0.42)";
 
 export type ColorKey = keyof typeof COLORS;

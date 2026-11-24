@@ -37,28 +37,28 @@ export function SelecionarPacienteModal({
   }, [busca]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={styles.overlay}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4" style={styles.overlay}>
       <div
-        className="w-full max-w-md bg-white border flex flex-col max-h-[80vh]"
+        className="w-full max-w-md max-h-[90vh] bg-white border flex flex-col overflow-hidden"
         style={styles.modalCard}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={styles.header}>
-          <div>
-            <h2 className="display text-[1.25rem] font-semibold" style={styles.title}>
+        <div className="flex items-center justify-between px-3.5 sm:px-5 py-3 sm:py-4 border-b shrink-0" style={styles.header}>
+          <div className="min-w-0 flex-1">
+            <h2 className="display text-base sm:text-[1.25rem] font-semibold truncate" style={styles.title}>
               Selecionar paciente
             </h2>
-            <p className="text-[12px]" style={styles.subtitle}>
+            <p className="text-[11px] sm:text-[12px] truncate" style={styles.subtitle}>
               Escolha o paciente para abrir o prontuário
             </p>
           </div>
           {onClose && (
-            <button onClick={onClose} className="p-1.5" style={styles.closeButton}>
+            <button onClick={onClose} className="p-1 shrink-0" style={styles.closeButton}>
               <X size={16} />
             </button>
           )}
         </div>
 
-        <div className="px-5 py-3 shrink-0">
+        <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 shrink-0">
           <div className="relative">
             <Search
               size={15}
@@ -67,7 +67,7 @@ export function SelecionarPacienteModal({
             />
             <input
               autoFocus
-              className="w-full border pl-9 pr-3 py-2.5 text-[13px] outline-none"
+              className="w-full border pl-8 sm:pl-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-[13px] outline-none"
               style={styles.searchInput}
               placeholder="Buscar por nome ou leito..."
               value={busca}
@@ -76,9 +76,9 @@ export function SelecionarPacienteModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
+        <div className="flex-1 overflow-y-auto px-2.5 sm:px-3 pb-3">
           {pacientesFiltrados.length === 0 ? (
-            <p className="text-center text-[13px] py-8" style={styles.emptyText}>
+            <p className="text-center text-xs sm:text-[13px] py-8" style={styles.emptyText}>
               Nenhum paciente encontrado.
             </p>
           ) : (
@@ -87,25 +87,24 @@ export function SelecionarPacienteModal({
                 <button
                   key={paciente.id}
                   onClick={() => onSelect(paciente)}
-                  className="flex items-center gap-3 w-full text-left px-3 py-2.5 border"
+                  className="flex items-center gap-2.5 sm:gap-3 w-full text-left px-2.5 sm:px-3 py-2 sm:py-2.5 border"
                   style={getPatientRowStyle()}
                 >
                   <div
-                    className="w-9 h-9 flex items-center justify-center shrink-0"
+                    className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0"
                     style={styles.avatar}
                   >
                     <User size={16} color={styles.avatarIconColor as string} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold truncate" style={styles.patientName}>
+                    <p className="text-xs sm:text-[13px] font-semibold truncate" style={styles.patientName}>
                       {paciente.nome}
                     </p>
-                    <p className="text-[11.5px] truncate" style={styles.patientMeta}>
-                      Leito {paciente.leito} · {paciente.idade} anos
-                      {paciente.condicao ? ` · ${paciente.condicao}` : ""}
+                    <p className="text-[10.5px] sm:text-[11.5px] truncate" style={styles.patientMeta}>
+                      Leito {paciente.leito} • {paciente.idade} anos • {paciente.condicao}
                     </p>
                   </div>
-                  <ChevronRight size={16} color={styles.chevronColor as string} />
+                  <ChevronRight size={15} color={styles.chevronColor as string} className="shrink-0" />
                 </button>
               ))}
             </div>

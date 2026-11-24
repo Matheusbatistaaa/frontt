@@ -16,12 +16,12 @@ export const DashMedicos: React.FC<DashMedicosProps> = ({ onOpenBed }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleSaveDoctor = (updatedDoctor: Doctor) => {
-    setDoctorsState(prev => prev.map(d => (d.id === updatedDoctor.id ? updatedDoctor : d)));
+    setDoctorsState((prev) => prev.map((d) => (d.id === updatedDoctor.id ? updatedDoctor : d)));
   };
 
-  const emPlantao = doctorsState.filter(d => d.plantao).length;
+  const emPlantao = doctorsState.filter((d) => d.plantao).length;
 
-  const filteredDoctors = doctorsState.filter(doctor =>
+  const filteredDoctors = doctorsState.filter((doctor) =>
     doctor.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doctor.especialidade.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -30,15 +30,15 @@ export const DashMedicos: React.FC<DashMedicosProps> = ({ onOpenBed }) => {
     <div className="flex-1 flex flex-col overflow-hidden">
       <TopBar title="Dashboard Médicos" subtitle={`${emPlantao} de ${doctorsState.length} médicos de plantão`} />
 
-      <div className="flex-1 overflow-y-auto px-8 py-7 space-y-5">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-7 space-y-4 sm:space-y-5">
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder="Buscar médico ou especialidade..."
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredDoctors.map(doctor => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          {filteredDoctors.map((doctor) => (
             <DoctorCard
               key={doctor.id}
               doctor={doctor}

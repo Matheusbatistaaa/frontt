@@ -20,18 +20,31 @@ export const addMonths = (d: Date, n: number): Date => {
 export const isSameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
+export const WEEKDAY_NAMES = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
 export const getWeekDays = (reference: Date): Date[] => {
-  const dow = reference.getDay(); // 0 = domingo
+  const dow = reference.getDay(); 
   const diffToMonday = dow === 0 ? -6 : 1 - dow;
   const monday = addDays(reference, diffToMonday);
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 };
 
-export const getMonthDays = (reference: Date): Date[] => {
+export const getMonthGridDays = (reference: Date): Date[] => {
   const year = reference.getFullYear();
   const month = reference.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  return Array.from({ length: lastDay }, (_, i) => new Date(year, month, i + 1));
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7;
+  const startDate = addDays(firstDay, -startWeekday);
+  const lastDay = new Date(year, month + 1, 0);
+  const endWeekday = (lastDay.getDay() + 6) % 7;
+  const paddingEnd = 6 - endWeekday;
+  const totalDays = startWeekday + lastDay.getDate() + paddingEnd;
+  const rowCount = Math.max(35, Math.ceil(totalDays / 7) * 7);
+  return Array.from({ length: rowCount }, (_, i) => addDays(startDate, i));
+};
+
+export const getMonthDays = (reference: Date): Date[] => {
+  return getMonthGridDays(reference);
 };
 
 const WEEKDAY_SHORT = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });

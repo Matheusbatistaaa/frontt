@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { TopBar } from "../../shared/components";
@@ -6,10 +6,8 @@ import { EstoqueItem } from "./estoque.types";
 import { EstoqueItemModal } from "../../components/modals/EstoqueItemModal";
 import { AlertBanner } from "../../components/AlertBanner";
 import { SearchInput } from "../../components/SearchInput";
-import { COLORS } from "../../config/colors";
 import { estoqueStyles as styles, getStockBadgeStyle } from "./Estoque.styles";
-
-import { useEstoque, useMedicamentos } from "../../hooks";
+import { useEstoque } from "../../hooks";
 import { supabase } from "../../lib/supabase";
 
 const MOCK_ESTOQUE_ITEMS: EstoqueItem[] = [
@@ -29,31 +27,23 @@ export const Estoque: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"novo" | "editar">("novo");
   const [editingItem, setEditingItem] = useState<EstoqueItem | null>(null);
-  const [localItems, setLocalItems] = useState<EstoqueItem[]>(MOCK_ESTOQUE_ITEMS);
+  const [itemsList, setItemsList] = useState<EstoqueItem[]>(MOCK_ESTOQUE_ITEMS);
 
-  const { data: supabaseItems, refetch, isLoading } = useEstoque();
-  const { data: medicamentos = [] } = useMedicamentos();
+  const { data: supabaseItems, refetch } = useEstoque();
 
-  // Transform DB rows to local EstoqueItem, or fallback to mock data
-  const items: EstoqueItem[] = (supabaseItems && supabaseItems.length > 0)
-    ? supabaseItems.map((dbItem: any) => ({
-        id: dbItem.id,
-        nome: dbItem.nome || dbItem.item || "Item",
-        categoria: dbItem.categoria || "Insumos",
-        quantidade: Number(dbItem.quantidade || dbItem.quantidade_atual || 0),
-        minimo: Number(dbItem.minimo || dbItem.quantidade_minima || 0),
-        unidade: dbItem.unidade || "un",
-      }))
-    : localItems;
+  useEffect(() => {
+    if (supabaseItems && supabaseItems.length > 0) {
+      setItemsList(supabaseItems as EstoqueItem[]);
+    }
+  }, [supabaseItems]);
 
-  const filteredItems = items.filter(item =>
+  const filteredItems = itemsList.filter((item) =>
     item.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.categoria.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const lowStockItems = items.filter(item => item.quantidade < item.minimo);
-
-  const categories = Array.from(new Set(items.map(i => i.categoria)));
+  const lowStockItems = itemsList.filter((item) => item.quantidade < item.minimo);
+  const categories = Array.from(new Set(itemsList.map((i) => i.categoria)));
 
   const handleOpenNovo = () => {
     setModalMode("novo");
@@ -73,69 +63,71 @@ export const Estoque: React.FC = () => {
   };
 
   const handleSaveItem = async (item: EstoqueItem) => {
-    try {
-      if (modalMode === "novo") {
-        // Buscar ou criar medicamento pelo nome
-        let med = medicamentos.find(m => m.nome.toLowerCase() === item.nome.toLowerCase());
-        if (!med) {
-          // Criar novo medicamento
-          const { data: newMed, error: medError } = await supabase
-            .from("medicamentos")
-            .insert({
-              nome: item.nome,
-              categoria: item.categoria,
-              unidade_medida: item.unidade,
-              principio_ativo: item.nome,
-              forma_farmaceutica: "outro",
-              concentracao: "",
-            })
-            .select()
-            .single();
-          if (medError) throw medError;
-          med = newMed;
-        }
+    if (modalMode === "novo") {
+      const newItem: EstoqueItem = {
+        ...item,
+        id: item.id || `e-${Date.now()}`,
+      };
+      setItemsList((prev) => [...prev, newItem]);
+      toast.success("Item adicionado ao estoque");
 
-        // Inserir estoque com medicamento_id
-        const { error } = await supabase.from("estoque").insert({
-          medicamento_id: med.id,
-          quantidade_atual: item.quantidade,
-          quantidade_minima: item.minimo,
-        });
-        if (error) throw error;
-      } else {
-        // Apenas atualizar quantidade (estoque table só tem essas colunas editáveis)
-        const { error } = await supabase
-          .from("estoque")
-          .update({
+      try {
+        const { data: newMed } = await supabase
+          .from("medicamentos")
+          .insert({
+            nome: item.nome,
+            principio_ativo: item.nome,
+            forma_farmaceutica: "comprimido",
+            concentracao: "1 un",
+            unidade_medida: item.unidade,
+            categoria: item.categoria,
+            preco_unitario: 10,
+          })
+          .select()
+          .single();
+
+        if (newMed?.id) {
+          await supabase.from("estoque").insert({
+            medicamento_id: newMed.id,
             quantidade_atual: item.quantidade,
             quantidade_minima: item.minimo,
-          })
-          .eq("id", item.id);
-        if (error) throw error;
+            quantidade_maxima: Math.max(item.quantidade * 3, item.minimo * 3, 100),
+          });
+          refetch();
+        }
+      } catch (err) {
+        console.warn("Item inserido localmente:", err);
       }
+    } else {
+      setItemsList((prev) => prev.map((i) => (i.id === item.id ? item : i)));
+      toast.success("Item atualizado com sucesso");
 
-      toast.success(modalMode === "novo" ? "Item adicionado ao estoque" : "Item atualizado");
-      setModalOpen(false);
-      setEditingItem(null);
-      refetch();
-    } catch {
-      // Fallback para modo apresentação sem backend
-      if (modalMode === "novo") {
-        setLocalItems(prev => [...prev, { ...item, id: `e${Date.now()}` }]);
-      } else {
-        setLocalItems(prev => prev.map(i => i.id === item.id ? item : i));
+      const numId = Number(item.id);
+      if (!isNaN(numId)) {
+        try {
+          await supabase
+            .from("estoque")
+            .update({
+              quantidade_atual: item.quantidade,
+              quantidade_minima: item.minimo,
+            })
+            .eq("id", numId);
+          refetch();
+        } catch (err) {
+          console.warn("Item atualizado localmente:", err);
+        }
       }
-      toast.success(modalMode === "novo" ? "Item adicionado ao estoque" : "Item atualizado");
-      setModalOpen(false);
-      setEditingItem(null);
     }
+
+    setModalOpen(false);
+    setEditingItem(null);
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <TopBar title="Estoque" subtitle="Controle de medicamentos e insumos" />
 
-      <div className="flex-1 overflow-y-auto px-8 py-7 space-y-7">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-7 space-y-5 sm:space-y-7">
         {lowStockItems.length > 0 && (
           <AlertBanner
             variant="warning"
@@ -144,44 +136,42 @@ export const Estoque: React.FC = () => {
           />
         )}
 
-        {/* Busca */}
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder="Buscar item..."
         />
 
-        {/* Itens por categoria */}
-        {categories.map(category => {
-          const categoryItems = filteredItems.filter(i => i.categoria === category);
+        {categories.map((category) => {
+          const categoryItems = filteredItems.filter((i) => i.categoria === category);
           if (categoryItems.length === 0) return null;
 
           return (
             <div key={category}>
-              <p className="text-[13px] font-semibold mb-3" style={styles.categoryTitle}>
+              <p className="text-[12.5px] sm:text-[13px] font-semibold mb-2.5 sm:mb-3" style={styles.categoryTitle}>
                 {category}
               </p>
               <div className="space-y-2">
-                {categoryItems.map(item => {
+                {categoryItems.map((item) => {
                   const isLow = item.quantidade < item.minimo;
                   return (
                     <button
                       key={item.id}
                       onClick={() => handleOpenEditar(item)}
-                      className="w-full p-4 border flex items-center justify-between text-left"
+                      className="w-full p-3 sm:p-4 border flex items-center justify-between text-left gap-2 transition-colors hover:opacity-90"
                       style={styles.itemCard}
                     >
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm" style={styles.itemName}>
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="font-semibold text-xs sm:text-sm truncate" style={styles.itemName}>
                           {item.nome}
                         </p>
-                        <p className="text-xs mt-1" style={styles.itemInfo}>
+                        <p className="text-[11px] sm:text-xs mt-0.5 sm:mt-1 truncate" style={styles.itemInfo}>
                           {item.quantidade} {item.unidade} • Mín: {item.minimo}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <div
-                          className="text-xs font-semibold px-2 py-0.5 inline-block"
+                          className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 inline-block"
                           style={getStockBadgeStyle(isLow)}
                         >
                           {isLow ? "Baixo" : "OK"}
@@ -197,7 +187,7 @@ export const Estoque: React.FC = () => {
 
         <button
           onClick={handleOpenNovo}
-          className="w-full py-2.5 text-white font-semibold flex items-center justify-center gap-2 text-sm"
+          className="w-full py-2.5 sm:py-3 text-white font-semibold flex items-center justify-center gap-2 text-xs sm:text-sm transition-opacity hover:opacity-90"
           style={styles.addButton}
         >
           <Plus size={16} /> Adicionar item
