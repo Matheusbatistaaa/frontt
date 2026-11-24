@@ -7,6 +7,7 @@ import { signIn } from "../../lib/auth";
 
 interface LoginProps {
   onLogin: () => void;
+  onBack?: () => void;
 }
 
 const FEATURES = [
@@ -24,7 +25,7 @@ const FEATURES = [
   },
 ];
 
-export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
+export const LoginScreen: React.FC<LoginProps> = ({ onLogin, onBack }) => {
   const [email, setEmail] = useState("dra.ferraz@hospital.com");
   const [password, setPassword] = useState("hash_senha_456");
   const [showPassword, setShowPassword] = useState(false);
@@ -109,6 +110,11 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
 
       <div className="flex-1 flex items-center justify-center px-6">
         <form onSubmit={handleLogin} className="w-full max-w-[400px]">
+          {onBack && (
+            <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-semibold mb-4 text-[#3E4A56] hover:text-[#F2652E] transition-colors">
+              ← Voltar ao início
+            </button>
+          )}
           <div className="flex items-center gap-2 mb-3">
             <Lock size={13} style={loginStyles.accessIcon} />
             <p className="kicker text-[12px] font-semibold uppercase" style={loginStyles.brandKicker}>

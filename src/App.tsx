@@ -9,6 +9,7 @@ import { COLORS } from "./config/colors";
 import { Sidebar, MobileNavbar } from "./shared/components";
 import { AccessibilityProvider } from "./shared/accessibility";
 import { useIsMobile } from "./hooks/use-mobile";
+import { LandingScreen } from "./modules/landingpage";
 import { LoginScreen } from "./modules/auth";
 import { Dashboard, DashMedicos } from "./modules/dashboard";
 import { Estoque } from "./modules/estoque";
@@ -29,6 +30,7 @@ export default function PerceptAIPrototype() {
   const [selectedBed, setSelectedBed] = useState<Bed>(
     (beds.find(b => b.risk === "critical") ?? beds[0])!
   );
+  const [showLogin, setShowLogin] = useState(false);
   const [isMobileNavbarOpen, setIsMobileNavbarOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -171,7 +173,11 @@ export default function PerceptAIPrototype() {
       />
 
       {!loggedIn ? (
-        <LoginScreen onLogin={() => setLoggedIn(true)} />
+        !showLogin ? (
+          <LandingScreen onGoToLogin={() => setShowLogin(true)} />
+        ) : (
+          <LoginScreen onLogin={() => setLoggedIn(true)} onBack={() => setShowLogin(false)} />
+        )
       ) : (
         <div className="flex h-screen w-full overflow-hidden">
           <Sidebar current={page} onNavigate={navigate} />
