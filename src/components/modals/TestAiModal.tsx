@@ -16,10 +16,13 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
   const [cameraError, setCameraError] = useState("");
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{
+    estadoPrincipal?: string;
+    emocaoSecundaria?: string | null;
     estadoFisiologico: string;
     confiancaFisiologica: number;
     estadoEmocional: string | null;
     confiancaEmocional: number | null;
+    observacoes?: string[];
     allProbabilities: Record<string, number>;
   } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
@@ -137,9 +140,10 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
 
       const result = await testAi(base64);
       setTestResult(result);
-      addLog(`Resultado: ${result.estadoFisiologico} (${(result.confiancaFisiologica * 100).toFixed(1)}%)`);
+      const principal = result.estadoPrincipal ?? result.estadoFisiologico;
+      addLog(`Resultado: ${principal} (${(result.confiancaFisiologica * 100).toFixed(1)}%)`);
       if (result.estadoEmocional) {
-        addLog(`Emoção: ${result.estadoEmocional} (${(result.confiancaEmocional! * 100).toFixed(1)}%)`);
+        addLog(`Emoção secundária: ${result.estadoEmocional} (${(result.confiancaEmocional! * 100).toFixed(1)}%)`);
       }
     } catch (err: any) {
       addLog(`Erro no teste: ${err.message}`);
@@ -286,29 +290,29 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
               <span className="text-sm font-semibold" style={{ color: COLORS.ink }}>Resultado</span>
               {testResult && (
                 <span className="text-xs px-2 py-0.5 rounded" style={{
-                  background: testResult.estadoFisiologico === "dormindo" ? `${COLORS.red}18` : `${COLORS.orange}18`,
-                  color: testResult.estadoFisiologico === "dormindo" ? COLORS.red : COLORS.orange,
+                  background: (testResult.estadoPrincipal ?? testResult.estadoFisiologico) === "dormindo" ? `${COLORS.red}18` : `${COLORS.orange}18`,
+                  color: (testResult.estadoPrincipal ?? testResult.estadoFisiologico) === "dormindo" ? COLORS.red : COLORS.orange,
                 }}>
-                  {testResult.estadoFisiologico.toUpperCase()}
+                  {(testResult.estadoPrincipal ?? testResult.estadoFisiologico).toUpperCase()}
                 </span>
               )}
             </div>
 
             {testResult ? (
               <div className="flex flex-col gap-3">
-                {/* Physiological */}
+                {/* Physiological / principal */}
                 <div className="p-3 rounded" style={{ background: "#fafafa", border: `1px solid ${COLORS.line}` }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: COLORS.slate }}>Estado Fisiológico</p>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: COLORS.slate }}>Estado Principal</p>
                   <p className="font-semibold text-lg" style={{
-                    color: testResult.estadoFisiologico === "dormindo" ? COLORS.red : COLORS.orange,
+                    color: (testResult.estadoPrincipal ?? testResult.estadoFisiologico) === "dormindo" ? COLORS.red : COLORS.orange,
                   }}>
-                    {testResult.estadoFisiologico} ({(testResult.confiancaFisiologica * 100).toFixed(1)}%)
+                    {testResult.estadoPrincipal ?? testResult.estadoFisiologico} ({(testResult.confiancaFisiologica * 100).toFixed(1)}%)
                   </p>
                 </div>
 
-                {/* Emotional */}
+                {/* Emotional / secondary */}
                 <div className="p-3 rounded" style={{ background: "#fafafa", border: `1px solid ${COLORS.line}` }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: COLORS.slate }}>Estado Emocional</p>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: COLORS.slate }}>Emoção Secundária</p>
                   {testResult.estadoEmocional ? (
                     <>
                       <div className="flex items-center gap-2 mb-1">
@@ -329,7 +333,9 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm" style={{ color: COLORS.slate }}>N/A (dormindo)</p>
+                    <p className="text-sm" style={{ color: COLORS.slate }}>
+                      {testResult.observacoes?.[0] ?? "N/A"}
+                    </p>
                   )}
                 </div>
 

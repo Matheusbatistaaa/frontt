@@ -48,6 +48,7 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
   const [cameraError, setCameraError] = useState<string>("");
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectedEmotion, setDetectedEmotion] = useState<string | null>(null);
+  const [detectedSecondary, setDetectedSecondary] = useState<string | null>(null);
   const [detectedConf, setDetectedConf] = useState<number>(0);
   const [lastDetectionTs, setLastDetectionTs] = useState<string>("");
   const [showTestAiModal, setShowTestAiModal] = useState(false);
@@ -80,6 +81,7 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
       const base64 = dataUrlToBase64(dataUrl);
       const result = await detectEmotion(base64, bed.internacaoId);
       setDetectedEmotion(result.Emotion);
+      setDetectedSecondary(result.emocaoSecundaria ?? null);
       setDetectedConf(Math.round(result.Confidence * 100));
       setLastDetectionTs(
         new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -156,7 +158,10 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
 
   // Emoção detectada pela câmera em tempo real
   const liveMood = detectedEmotion
-    ? (moodMeta[detectedEmotion] ?? moodMeta["neutro"]!)
+    ? moodMeta[detectedEmotion] ??
+      (detectedEmotion === "indeterminado"
+        ? { label: "Indeterminado", icon: Activity, color: COLORS.slate }
+        : null)
     : null;
   const LiveMoodIcon = liveMood?.icon ?? null;
 
@@ -403,6 +408,11 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack }) => {
                   >
                     {liveMood.label}
                   </p>
+                  {detectedEmotion === "dormindo" && detectedSecondary && detectedSecondary !== "neutro" && (
+                    <p className="text-xs font-semibold" style={{ color: moodMeta[detectedSecondary]?.color ?? COLORS.slate }}>
+                      Emoção secundária: {moodMeta[detectedSecondary]?.label ?? detectedSecondary}
+                    </p>
+                  )}
                   <p className="text-xs" style={styles.patientInfoLabel}>
                     Confiança: {detectedConf}% · {lastDetectionTs}
                   </p>
