@@ -19,11 +19,11 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
     setPacientesSelecionados(doctor.pacientes);
   }, [doctor.id]);
 
-  const internados = allBeds.filter(b => b.status === "internado");
+  const internados = allBeds.filter((b) => b.status === "internado");
 
   const togglePaciente = (bedId: string) => {
-    setPacientesSelecionados(prev =>
-      prev.includes(bedId) ? prev.filter(id => id !== bedId) : [...prev, bedId]
+    setPacientesSelecionados((prev) =>
+      prev.includes(bedId) ? prev.filter((id) => id !== bedId) : [...prev, bedId]
     );
   };
 
@@ -41,46 +41,43 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 flex items-center justify-center z-50 p-2.5 sm:p-4"
       style={styles.overlay}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg border p-6 max-h-[85vh] overflow-y-auto"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto border p-3.5 sm:p-6 bg-white"
         style={styles.modal}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho */}
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="display text-[1.35rem] font-semibold leading-tight" style={styles.title}>
+        <div className="flex justify-between items-start gap-2 mb-4">
+          <div className="min-w-0 flex-1">
+            <p className="display text-base sm:text-[1.35rem] font-semibold leading-tight truncate" style={styles.title}>
               {doctor.nome}
             </p>
-            <p className="text-sm" style={styles.subtitle}>
+            <p className="text-xs sm:text-sm truncate" style={styles.subtitle}>
               {doctor.especialidade} • CRM {doctor.crm}
             </p>
           </div>
-          <button onClick={onClose} style={styles.closeButton}>
+          <button onClick={onClose} style={styles.closeButton} className="p-1 shrink-0">
             <X size={20} />
           </button>
         </div>
 
-        {/* Plantão */}
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={styles.label}>
             Status
           </p>
           <button
             type="button"
-            onClick={() => setPlantao(prev => !prev)}
-            className="px-3 py-2 text-sm font-semibold"
+            onClick={() => setPlantao((prev) => !prev)}
+            className="px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded"
             style={getPlantaoToggleStyle(plantao)}
           >
             {plantao ? "De plantão" : "Fora de plantão"}
           </button>
         </div>
 
-        {/* Turno */}
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={styles.label}>
             Turno
@@ -88,7 +85,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           <select
             value={turno}
             onChange={(e) => setTurno(e.target.value as Doctor["turno"])}
-            className="w-full px-3 py-2 border text-sm"
+            className="w-full px-3 py-2 border text-xs sm:text-sm outline-none"
             style={styles.input}
           >
             <option value="manhã">Manhã</option>
@@ -97,58 +94,57 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           </select>
         </div>
 
-        {/* Horário */}
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={styles.label}>
             Horário
           </p>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             <input
               type="time"
               value={horarioInicio}
               onChange={(e) => setHorarioInicio(e.target.value)}
-              className="flex-1 px-3 py-2 border text-sm"
+              className="flex-1 min-w-[100px] px-3 py-2 border text-xs sm:text-sm outline-none"
               style={styles.input}
             />
-            <span style={styles.label}>até</span>
+            <span style={styles.label} className="text-xs">até</span>
             <input
               type="time"
               value={horarioFim}
               onChange={(e) => setHorarioFim(e.target.value)}
-              className="flex-1 px-3 py-2 border text-sm"
+              className="flex-1 min-w-[100px] px-3 py-2 border text-xs sm:text-sm outline-none"
               style={styles.input}
             />
           </div>
         </div>
 
-        {/* Pacientes */}
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={styles.label}>
             Pacientes sob os cuidados ({pacientesSelecionados.length})
           </p>
-          <div className="space-y-1">
-            {internados.map(bed => {
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {internados.map((bed) => {
               const isChecked = pacientesSelecionados.includes(bed.id);
               return (
                 <div
                   key={bed.id}
-                  className="flex items-center justify-between p-2"
+                  className="flex items-center justify-between p-2 gap-2"
                   style={styles.patientRow}
                 >
-                  <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                  <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => togglePaciente(bed.id)}
+                      className="shrink-0"
                     />
-                    <span className="text-sm" style={styles.patientName}>
+                    <span className="text-xs sm:text-sm truncate" style={styles.patientName}>
                       {bed.name} — Leito {bed.id}
                     </span>
                   </label>
                   <button
                     type="button"
                     onClick={() => onSelectPatient(bed)}
-                    className="text-xs underline"
+                    className="text-xs underline shrink-0"
                     style={styles.label}
                   >
                     Ver ficha
@@ -164,12 +160,11 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           </div>
         </div>
 
-        {/* Ações */}
-        <div className="flex gap-2 justify-end mt-6">
+        <div className="flex flex-wrap gap-2 justify-end mt-5 sm:mt-6">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border text-sm"
+            className="px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold"
             style={styles.cancelButton}
           >
             Cancelar
@@ -177,7 +172,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-semibold"
+            className="px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={styles.saveButton}
           >
             Salvar

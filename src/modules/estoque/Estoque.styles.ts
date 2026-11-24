@@ -24,7 +24,6 @@ export const estoqueStyles = {
   },
 };
 
-// Estilo dinâmico (depende se o item está com estoque baixo)
 export const getStockBadgeStyle = (isLow: boolean) => ({
   background: isLow ? COLORS.redSoft : COLORS.greenSoft,
   color: isLow ? COLORS.red : COLORS.green,

@@ -50,8 +50,7 @@ export default function PerceptAIPrototype() {
     if (key === "login") {
       try {
         await signOut();
-      } catch {}
-      setLoggedIn(false);
+      } catch {}      setLoggedIn(false);
       return;
     }
     setPage(key);
@@ -180,7 +179,13 @@ export default function PerceptAIPrototype() {
           <div className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0 overflow-y-auto">
             {page === "dash-pacientes" && <Dashboard onOpenBed={openBed} />}
             {page === "dash-medicos" && <DashMedicos onOpenBed={openBed} />}
-            {page === "info-ia" && <InfoIA bed={selectedBed} onBack={() => setPage("dash-pacientes")} />}
+            {page === "info-ia" && (
+              <InfoIA
+                bed={selectedBed}
+                onBack={() => setPage("dash-pacientes")}
+                onSelectBed={(newBed) => setSelectedBed(newBed)}
+              />
+            )}
             {page === "estoque" && <Estoque />}
             {page === "acessibilidade" && <Acessibilidade />}
             {page === "medicamentos" && <Medicamentos />}

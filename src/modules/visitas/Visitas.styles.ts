@@ -48,7 +48,6 @@ export const statusCfg = {
   "finalizada": { label: "Finalizada", bg: COLORS.bg, fg: COLORS.slateSoft },
 };
 
-// Estilo dinâmico (depende do status da visita)
 export const getStatusBadgeStyle = (bg: string, fg: string) => ({
   background: bg,
   color: fg,

@@ -1,7 +1,5 @@
 import { supabase } from './supabase';
 
-// String vazia = mesma origem (o dev server faz proxy de /api para o backend),
-// o que mantém tudo funcionando também através do túnel Cloudflared.
 const BACKEND_URL = import.meta.env['VITE_BACKEND_URL'] ?? '';
 
 export interface DetectionRequest {
@@ -14,37 +12,19 @@ export interface DetectionResponse {
   Emotion: string;
   Confidence: number;
   Timestamp: string;
-  estadoPrincipal?: string;
-  emocaoSecundaria?: string | null;
-  estadoFisiologico?: string;
-  confiancaFisiologica?: number;
-  estadoEmocional?: string | null;
-  confiancaEmocional?: number | null;
-  fonte?: "landmarks" | "classificador";
-  facesDetectadas?: number;
-  observacoes?: string[];
 }
 
 export interface TestAiResponse {
-  estadoPrincipal?: string;
-  emocaoSecundaria?: string | null;
   estadoFisiologico: string;
   confiancaFisiologica: number;
   estadoEmocional: string | null;
   confiancaEmocional: number | null;
-  fonte?: "landmarks" | "classificador";
-  facesDetectadas?: number;
-  observacoes?: string[];
-  regras?: Array<{
-    emotion: string;
-    matched: boolean;
-    confidence: number;
-    evidence: string[];
-  }>;
   allProbabilities: Record<string, number>;
 }
 
-export async function testAi(base64Image: string): Promise<TestAiResponse> {
+export async function testAi(
+  base64Image: string
+): Promise<TestAiResponse> {
   const response = await fetch(`${BACKEND_URL}/api/test-ai`, {
     method: 'POST',
     headers: {

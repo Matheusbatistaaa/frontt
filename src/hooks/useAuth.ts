@@ -15,7 +15,7 @@ export function useAuth() {
         .eq('id', user.id)
         .single();
         
-      if (error && error.code !== 'PGRST116') throw error; // Ignora erro de not found
+      if (error && error.code !== 'PGRST116') throw error; 
       return data;
     },
   });

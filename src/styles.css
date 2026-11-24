@@ -4,20 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
- */
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -145,10 +131,6 @@
   }
 }
 
-/* ==========================================================================
-   Preferências de acessibilidade (aplicadas globalmente pelo provider)
-   ========================================================================== */
-
 html {
   zoom: var(--a11y-font-scale, 1);
 }
@@ -165,7 +147,6 @@ html {
   border-width: 0;
 }
 
-/* Alto contraste: fundo/botões em tons de preto, textos em amarelo */
 html.a11y-contrast,
 html.a11y-contrast body {
   background: #000000 !important;
@@ -257,12 +238,6 @@ html.a11y-reduce-motion :focus-visible {
   outline-offset: 2px;
 }
 
-/* ==========================================================================
-   Pré-visualização da página de Acessibilidade
-   Reflete o rascunho das preferências, mesmo quando o alto contraste global
-   está ativo (por isso precisa vencer as regras !important acima).
-   ========================================================================== */
-
 @keyframes a11y-preview-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.35; transform: scale(1.6); }
@@ -288,7 +263,6 @@ html.a11y-contrast .a11y-preview[data-hc="off"] svg {
   color: #E5484D !important;
 }
 
-/* O ponto pulsante mantém sua cor de fundo mesmo com contraste global */
 html.a11y-contrast .a11y-preview[data-a11y-dot],
 html.a11y-contrast .a11y-preview span[data-a11y-dot] {
   background-color: #FFEB00 !important;
@@ -304,15 +278,12 @@ html.a11y-contrast .a11y-preview[data-hc="off"] button {
   border: 1px solid #E3E7EB !important;
 }
 
-/* Sem contraste global, mas rascunho com alto contraste ligado */
 .a11y-preview[data-hc="on"] span,
 .a11y-preview[data-hc="on"] p,
 .a11y-preview[data-hc="on"] svg {
   color: #FFEB00;
 }
 
-/* Redução de movimento não deve impedir o pulso de demonstração
-   quando o rascunho ainda mantém as animações ativas */
 html.a11y-reduce-motion .a11y-preview [style*="a11y-preview-pulse"] {
   animation-duration: 1.2s !important;
   animation-iteration-count: infinite !important;

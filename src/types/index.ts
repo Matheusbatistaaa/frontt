@@ -5,8 +5,8 @@ export type RiskLevel = "normal" | "attention" | "critical";
 export type PatientStatus = "internado" | "alta";
 
 export interface Bed {
-  id: string; // This is the bed number
-  internacaoId?: string; // NOVO: ID real da internação no Supabase
+  id: string; 
+  internacaoId?: string; 
   name: string;
   hr: number;
   hrSeries: number[];
@@ -81,8 +81,8 @@ export interface Doctor {
   especialidade: string;
   crm: string;
   turno: "manhã" | "tarde" | "noite";
-  horarioInicio: string; // ex: "07:00"
-  horarioFim: string;    // ex: "13:00"
+  horarioInicio: string; 
+  horarioFim: string;    
   plantao: boolean;
   pacientes: string[];
 }

@@ -10,7 +10,6 @@ import { beds as mockBeds } from "../../../config/mockData";
 import { COLORS } from "../../../config/colors";
 import { dashboardStyles as styles, getRiskBadgeStyle, getFilterOptionStyle } from "./Dashboard.styles";
 
-
 interface DashboardProps {
   onOpenBed: (bed: Bed) => void;
 }
@@ -26,7 +25,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
 
   const initialBeds = useMemo(() => {
     if (internacoes && internacoes.length > 0) {
-      return internacoes.map(int => ({
+      return internacoes.map((int: any) => ({
         id: String(int.leito?.numero ?? "??"),
         internacaoId: String(int.id),
         name: int.paciente?.nome || "Desconhecido",
@@ -45,7 +44,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
 
   const [bedsState, setBedsState] = useState<Bed[]>(initialBeds);
 
-  // Sync with server data - compare by content to avoid infinite loop
   useEffect(() => {
     const hasChanged = initialBeds.some((newBed, i) => {
       const oldBed = bedsState[i];
@@ -72,35 +70,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
   }, []);
 
   const handleChangeRisk = (bedId: string, risk: RiskLevel) => {
-    setBedsState(prev => prev.map(bed =>
+    setBedsState((prev) => prev.map((bed) =>
       bed.id === bedId ? { ...bed, risk } : bed
     ));
   };
 
   const handleToggleStatus = (bedId: string) => {
-    setBedsState(prev => prev.map(bed =>
+    setBedsState((prev) => prev.map((bed) =>
       bed.id === bedId ? { ...bed, status: bed.status === "internado" ? "alta" : "internado" } : bed
     ));
   };
 
-  const filteredBeds = bedsState.filter(bed => {
+  const filteredBeds = bedsState.filter((bed) => {
     const matchesFilter = filter === "all" || bed.risk === filter;
     const matchesSearch = bed.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          bed.id.includes(searchTerm);
     return matchesFilter && matchesSearch;
   });
 
-  const criticalCount = bedsState.filter(b => b.risk === "critical" && b.status === "internado").length;
-  const attentionCount = bedsState.filter(b => b.risk === "attention" && b.status === "internado").length;
-
-  const currentFilterLabel = FILTER_OPTIONS.find(opt => opt.value === filter)?.label ?? "Todos";
+  const criticalCount = bedsState.filter((b) => b.risk === "critical" && b.status === "internado").length;
+  const attentionCount = bedsState.filter((b) => b.risk === "attention" && b.status === "internado").length;
+  const currentFilterLabel = FILTER_OPTIONS.find((opt) => opt.value === filter)?.label ?? "Todos";
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <TopBar title="Dashboard de Pacientes" subtitle={`${bedsState.length} leitos monitorados`} />
 
-      <div className="flex-1 overflow-y-auto px-8 py-7 space-y-7">
-        {/* Alertas críticos */}
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-7 space-y-4 sm:space-y-7">
         {criticalCount > 0 && (
           <AlertBanner
             variant="critical"
@@ -109,62 +105,61 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
           />
         )}
 
-        {/* Filtros e busca */}
-        <div className="flex items-end gap-4 pb-2" style={{ borderBottom: `1px solid ${COLORS.line}` }}>
+        <div className="flex flex-wrap items-end gap-3 sm:gap-4 pb-2" style={{ borderBottom: `1px solid ${COLORS.line}` }}>
+          <div className="flex-1 min-w-[200px]">
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
               placeholder="Buscar paciente ou leito..."
             />
+          </div>
 
-            {/* Dropdown de filtro */}
-            <div className="relative" ref={filterRef}>
-              <button
-                type="button"
-                className="px-3 py-2 border flex items-center gap-2 text-sm"
-                style={styles.filterButton}
-                onClick={() => setIsFilterOpen(prev => !prev)}
+          <div className="relative shrink-0" ref={filterRef}>
+            <button
+              type="button"
+              className="px-3 py-2 border flex items-center gap-2 text-xs sm:text-sm"
+              style={styles.filterButton}
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+            >
+              <Filter size={15} color={styles.filterIconColor} />
+              {currentFilterLabel}
+              <ChevronDown
+                size={14}
+                color={styles.filterIconColor}
+                className={`transition-transform ${isFilterOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {isFilterOpen && (
+              <div
+                className="absolute right-0 mt-1 w-40 border overflow-hidden z-20"
+                style={styles.filterDropdownMenu}
               >
-                <Filter size={16} color={styles.filterIconColor} />
-                {currentFilterLabel}
-                <ChevronDown
-                  size={14}
-                  color={styles.filterIconColor}
-                  className={`transition-transform ${isFilterOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {isFilterOpen && (
-                <div
-                  className="absolute right-0 mt-1 w-40 border overflow-hidden z-10"
-                  style={styles.filterDropdownMenu}
-                >
-                  {FILTER_OPTIONS.map(option => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm flex items-center justify-between"
-                      style={getFilterOptionStyle(filter === option.value)}
-                      onClick={() => {
-                        setFilter(option.value);
-                        setIsFilterOpen(false);
-                      }}
-                    >
-                      {option.label}
-                      {option.value === "critical" && criticalCount > 0 && (
-                        <span className="text-xs opacity-70">{criticalCount}</span>
-                      )}
-                      {option.value === "attention" && attentionCount > 0 && (
-                        <span className="text-xs opacity-70">{attentionCount}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {FILTER_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-xs sm:text-sm flex items-center justify-between"
+                    style={getFilterOptionStyle(filter === option.value)}
+                    onClick={() => {
+                      setFilter(option.value);
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    {option.label}
+                    {option.value === "critical" && criticalCount > 0 && (
+                      <span className="text-xs opacity-70">{criticalCount}</span>
+                    )}
+                    {option.value === "attention" && attentionCount > 0 && (
+                      <span className="text-xs opacity-70">{attentionCount}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Cards dos leitos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
           {isLoading ? (
             <p className="text-sm py-4" style={{ color: COLORS.slateSoft }}>Carregando pacientes...</p>
@@ -179,24 +174,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
           ))}
         </div>
 
-        {/* Pacientes recentes */}
-        <div className="border p-5" style={styles.sectionCard}>
-          <p className="kicker mb-4" style={styles.sectionTitle}>
+        <div className="border p-3.5 sm:p-5" style={styles.sectionCard}>
+          <p className="kicker mb-3 sm:mb-4 text-xs" style={styles.sectionTitle}>
             Pacientes sob monitoramento intenso
           </p>
           <div className="space-y-2">
-            {bedsState.filter(b => b.risk === "critical" || b.risk === "attention").slice(0, 5).map((patient, i) => (
-              <div key={patient.internacaoId || patient.id + "-" + i} className="flex items-center justify-between px-3 py-2.5" style={styles.patientRow}>
-                <div>
-                  <p className="text-sm font-semibold" style={styles.patientName}>
+            {bedsState.filter((b) => b.risk === "critical" || b.risk === "attention").slice(0, 5).map((patient, i) => (
+              <div key={patient.internacaoId || patient.id + "-" + i} className="flex items-center justify-between px-2.5 sm:px-3 py-2 sm:py-2.5 gap-2" style={styles.patientRow}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold truncate" style={styles.patientName}>
                     {patient.name}
                   </p>
-                  <p className="text-xs" style={styles.patientBed}>
+                  <p className="text-[11px] sm:text-xs truncate" style={styles.patientBed}>
                     Leito {patient.id}
                   </p>
                 </div>
                 <div
-                  className="text-xs font-semibold px-2 py-0.5"
+                  className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 shrink-0"
                   style={getRiskBadgeStyle(patient.risk)}
                 >
                   {patient.risk === "critical" ? "Crítico" : "Atenção"}

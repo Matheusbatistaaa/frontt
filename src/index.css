@@ -60,7 +60,6 @@
   appearance: textfield;
 }
 
-/* Preferências de acessibilidade */
 html {
   zoom: var(--a11y-font-scale, 1);
 }
@@ -172,10 +171,9 @@ html.a11y-contrast div {
 }
 
 html.a11y-contrast .doctor-modal {
-  background: #000000 !important; /* ou a cor que você quiser */
+  background: #000000 !important; 
 }
 
-/* Pré-visualização da página de Acessibilidade */
 @keyframes a11y-preview-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.35; transform: scale(1.6); }
@@ -216,7 +214,6 @@ html.a11y-contrast .a11y-preview[data-hc="off"] button {
   border: 1px solid #E3E7EB !important;
 }
 
-
 .a11y-preview[data-hc="on"] span,
 .a11y-preview[data-hc="on"] p,
 .a11y-preview[data-hc="on"] svg {
@@ -228,7 +225,6 @@ html.a11y-reduce-motion .a11y-preview [style*="a11y-preview-pulse"] {
   animation-iteration-count: infinite !important;
 }
 
-/* Scrollbar customizada do menu lateral (Sidebar) */
 .sidebar-nav {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
@@ -251,13 +247,12 @@ html.a11y-reduce-motion .a11y-preview [style*="a11y-preview-pulse"] {
   background-color: rgba(255, 255, 255, 0.55);
 }
 
-/* Scrollbar temática para áreas com fundo claro (ex: coluna direita do Cadastro) */
 .scroll-orange {
   scrollbar-width: thin;
-  scrollbar-color: rgb(229,233,238) transparent; /* COLORS.orangeDark em rgba */
+  scrollbar-color: rgb(229,233,238) transparent; 
 }
 
 .scroll-orange::-webkit-scrollbar {
   width: 6px;
 }
-
+

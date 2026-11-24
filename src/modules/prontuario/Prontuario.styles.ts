@@ -63,8 +63,6 @@ export const prontuarioStyles = {
   },
 };
 
-// Estilos dinâmicos (dependem do estado)
-
 export const getRemoveButtonStyle = (disabled: boolean) => ({
   borderColor: COLORS.line,
   color: disabled ? COLORS.line : COLORS.red,

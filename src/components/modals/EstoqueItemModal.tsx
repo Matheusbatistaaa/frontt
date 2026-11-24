@@ -65,7 +65,7 @@ export const EstoqueItemModal: React.FC<EstoqueItemModalProps> = ({
 
     setIsSubmitting(true);
     onSave({
-      id: mode === "editar" && item ? item.id : crypto.randomUUID(),
+      id: mode === "editar" && item ? item.id : "",
       nome: form.nome.trim(),
       categoria: form.categoria.trim(),
       quantidade,
@@ -73,39 +73,36 @@ export const EstoqueItemModal: React.FC<EstoqueItemModalProps> = ({
       unidade: form.unidade.trim(),
     });
 
-    onClose();
     setIsSubmitting(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={styles.overlay}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4" style={styles.overlay}>
       <div
-        className="w-[500px] max-w-[92vw] max-h-[85vh] bg-white overflow-hidden flex flex-col"
+        className="w-[500px] max-w-[95vw] max-h-[90vh] bg-white overflow-hidden flex flex-col"
         style={styles.card}
       >
-        {/* Header (fixo) */}
-        <div className="flex items-center justify-between px-6 py-5 border-b shrink-0" style={styles.header}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center" style={styles.headerIconWrap}>
+        <div className="flex items-center justify-between px-3.5 sm:px-6 py-3 sm:py-5 border-b shrink-0" style={styles.header}>
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0" style={styles.headerIconWrap}>
               {mode === "novo" ? (
                 <PackagePlus size={16} color={styles.headerIconColor} />
               ) : (
                 <Package size={16} color={styles.headerIconColor} />
               )}
             </div>
-            <p className="display text-[1.25rem] font-semibold" style={styles.title}>
+            <p className="display text-[1.1rem] sm:text-[1.25rem] font-semibold truncate" style={styles.title}>
               {mode === "novo" ? "Adicionar item" : "Editar item"}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="w-7 h-7 flex items-center justify-center">
+          <button type="button" onClick={onClose} className="w-7 h-7 flex items-center justify-center p-1">
             <X size={16} color={styles.closeIconColor} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          {/* Campos (rolável) */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
+          <div className="flex-1 min-h-0 overflow-y-auto px-3.5 sm:px-6 py-3.5 sm:py-5 flex flex-col gap-3 sm:gap-4">
+            <div className="flex flex-col gap-1.5">
               <label className="text-[11.5px] font-semibold" style={styles.label}>
                 Nome do item
               </label>
@@ -113,12 +110,12 @@ export const EstoqueItemModal: React.FC<EstoqueItemModalProps> = ({
                 value={form.nome}
                 onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
                 placeholder="Ex: Máscara N95"
-                className="h-10 px-3 text-[13px] border outline-none"
+                className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
                 style={styles.input}
               />
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <label className="text-[11.5px] font-semibold" style={styles.label}>
                 Categoria
               </label>
@@ -127,7 +124,7 @@ export const EstoqueItemModal: React.FC<EstoqueItemModalProps> = ({
                 value={form.categoria}
                 onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
                 placeholder="Ex: EPI, Curativo, Medicamento..."
-                className="h-10 px-3 text-[13px] border outline-none"
+                className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
                 style={styles.input}
               />
               <datalist id="categorias-existentes">
@@ -137,54 +134,55 @@ export const EstoqueItemModal: React.FC<EstoqueItemModalProps> = ({
               </datalist>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-[11.5px] font-semibold" style={styles.label}>
-                Quantidade
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.quantidade}
-                onChange={handleNumericChange("quantidade")}
-                className="h-10 px-3 text-[13px] border outline-none"
-                style={styles.input}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11.5px] font-semibold" style={styles.label}>
+                  Quantidade
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.quantidade}
+                  onChange={handleNumericChange("quantidade")}
+                  className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
+                  style={styles.input}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11.5px] font-semibold" style={styles.label}>
+                  Mínimo
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.minimo}
+                  onChange={handleNumericChange("minimo")}
+                  className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
+                  style={styles.input}
+                />
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-[11.5px] font-semibold" style={styles.label}>
-                Mínimo
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.minimo}
-                onChange={handleNumericChange("minimo")}
-                className="h-10 px-3 text-[13px] border outline-none"
-                style={styles.input}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <label className="text-[11.5px] font-semibold" style={styles.label}>
                 Unidade
               </label>
               <input
                 value={form.unidade}
                 onChange={(e) => setForm((f) => ({ ...f, unidade: e.target.value }))}
-                placeholder="un, caixa, L..."
-                className="h-10 px-3 text-[13px] border outline-none"
+                placeholder="un, caixa, ampolas, L..."
+                className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
                 style={styles.input}
               />
             </div>
           </div>
 
-          {/* Ações (fixas) */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t shrink-0" style={styles.header}>
-            <button type="button" onClick={onClose} className="h-10 px-4 text-[13px] font-semibold" style={styles.cancelButton}>
+          <div className="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 px-3.5 sm:px-6 py-3 sm:py-4 border-t shrink-0" style={styles.header}>
+            <button type="button" onClick={onClose} className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-semibold" style={styles.cancelButton}>
               Cancelar
             </button>
-            <button type="submit" disabled={isSubmitting} className="h-10 px-4 text-[13px] font-semibold disabled:opacity-60 disabled:cursor-not-allowed" style={styles.saveButton}>
+            <button type="submit" disabled={isSubmitting} className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-semibold disabled:opacity-60 disabled:cursor-not-allowed" style={styles.saveButton}>
               {mode === "novo" ? "Adicionar" : "Salvar alterações"}
             </button>
           </div>

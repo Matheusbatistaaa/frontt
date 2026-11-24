@@ -13,8 +13,6 @@ export default defineConfig({
     strictPort: true,
     open: true,
     allowedHosts: true,
-    // Mesma origem para o front e a API: funciona local (localhost:3000/api) e
-    // através do túnel Cloudflare, sem CORS e sem precisar de VITE_BACKEND_URL.
     proxy: {
       "/api": {
         target: "http://localhost:5198",

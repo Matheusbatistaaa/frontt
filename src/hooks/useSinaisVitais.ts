@@ -21,7 +21,7 @@ export function useSinaisVitais(internacaoId?: string) {
         (payload) => {
           queryClient.setQueryData(['sinais_vitais', internacaoId], (old: any) => {
             if (!old) return [payload.new];
-            return [...old, payload.new].slice(-100); // manter os últimos 100
+            return [...old, payload.new].slice(-100); 
           });
         }
       )
