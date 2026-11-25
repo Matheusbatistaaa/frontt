@@ -11,7 +11,7 @@ interface NovoMedicamentoModalProps {
   onSubmit: (medicamento: NovoMedicamentoInput) => Promise<boolean>;
 }
 
-const VIA_OPTIONS = ["EV", "VO", "SC", "IM", "Inalatória", "Tópica"];
+const VIA_OPTIONS = ["EV", "VO", "SC", "IM"];
 
 export const NovoMedicamentoModal: React.FC<NovoMedicamentoModalProps> = ({ onClose, onSubmit }) => {
   const { data: internacoes = [] } = useInternacoes();

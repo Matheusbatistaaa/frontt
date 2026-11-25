@@ -47,8 +47,6 @@ const VIA_PARA_FORMA: Record<string, string> = {
   IM: "injecao",
   SC: "injecao",
   VO: "comprimido",
-  "Inalatória": "inalacao",
-  "Tópica": "creme",
 };
 
 const deriveStatus = (status: string, planejada?: string | null): Medicamento["status"] => {
