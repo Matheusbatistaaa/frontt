@@ -2,20 +2,27 @@ import React, { useState, useEffect, useCallback } from "react";
 import { ClipboardList, Save, UserPlus, BedSingle } from "lucide-react";
 import { TopBar } from "../../shared/components";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../../lib/supabase";
 import { cadastroStyles as styles, getSubmitButtonStyle } from "./cadastro.styles";
 
 interface Leito {
-  id: string;
-  numero: number;
+  id: number;
+  numero: string;
   status: string;
 }
 
 interface PacienteCadastrado {
-  id: string;
+  id: number;
   nome: string;
-  leito?: number | null;
+  leito?: string | null;
   criadoEm?: string;
 }
+
+const GENERO_OPTIONS = [
+  { value: "F", label: "Feminino" },
+  { value: "M", label: "Masculino" },
+];
 
 const FormField = ({ label, value, onChange, placeholder, type = "text", span = 1 }: any) => (
   <div className={span === 2 ? "col-span-1 sm:col-span-2" : "col-span-1"}>
@@ -34,8 +41,10 @@ const FormField = ({ label, value, onChange, placeholder, type = "text", span = 
 );
 
 export const Cadastro: React.FC = () => {
+  const queryClient = useQueryClient();
   const [leitos, setLeitos] = useState<Leito[]>([]);
   const [pacientes, setPacientes] = useState<PacienteCadastrado[]>([]);
+  const [salvando, setSalvando] = useState(false);
 
   const [lgpd, setLgpd] = useState(false);
   const [camera, setCamera] = useState(false);
@@ -44,19 +53,34 @@ export const Cadastro: React.FC = () => {
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
+  const [genero, setGenero] = useState("");
   const [convenio, setConvenio] = useState("");
+  const [contatoEmergencia, setContatoEmergencia] = useState("");
+  const [numeroEmergencia, setNumeroEmergencia] = useState("");
+  const [alergias, setAlergias] = useState("");
   const [diagnostico, setDiagnostico] = useState("");
 
   const carregar = useCallback(async () => {
-    try {
-      const [leitosResp, pacientesResp] = await Promise.all([
-        fetch("/api/cadastro/leitos"),
-        fetch("/api/cadastro/pacientes"),
-      ]);
-      if (leitosResp.ok) setLeitos(await leitosResp.json());
-      if (pacientesResp.ok) setPacientes(await pacientesResp.json());
-    } catch {
-      // host local fora do ar: mantém o que já está em tela
+    const [leitosResp, internacoesResp] = await Promise.all([
+      supabase.from("leitos").select("id, numero, status").order("numero"),
+      supabase
+        .from("internacoes")
+        .select("id, data_internacao, paciente:pacientes(nome), leito:leitos(numero)")
+        .eq("ativo", true)
+        .order("id", { ascending: false })
+        .limit(10),
+    ]);
+
+    if (leitosResp.data) setLeitos(leitosResp.data as Leito[]);
+    if (internacoesResp.data) {
+      setPacientes(
+        internacoesResp.data.map((int: any) => ({
+          id: int.id,
+          nome: int.paciente?.nome ?? "Desconhecido",
+          leito: int.leito?.numero ?? null,
+          criadoEm: int.data_internacao,
+        }))
+      );
     }
   }, []);
 
@@ -66,38 +90,89 @@ export const Cadastro: React.FC = () => {
 
   const leitosLivresDb = leitos.filter((l) => l.status === "livre");
 
+  const limparFormulario = () => {
+    setNome("");
+    setCpf("");
+    setDataNascimento("");
+    setGenero("");
+    setConvenio("");
+    setContatoEmergencia("");
+    setNumeroEmergencia("");
+    setAlergias("");
+    setDiagnostico("");
+    setLgpd(false);
+    setCamera(false);
+  };
+
   const handleCadastrar = async () => {
-    if (!nome || !cpf || !dataNascimento) {
-      toast.error("Preencha os campos obrigatórios");
+    if (!nome.trim() || !cpf.trim() || !dataNascimento || !genero) {
+      toast.error("Preencha nome, CPF, data de nascimento e sexo");
       return;
     }
 
+    if (leitosLivresDb.length === 0) {
+      toast.error("Nenhum leito livre disponível no momento");
+      return;
+    }
+
+    setSalvando(true);
     try {
-      const resp = await fetch("/api/cadastro/pacientes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome,
-          cpf,
-          dataNascimento,
-          convenio,
-          diagnostico,
-        }),
+      const { data: existente } = await supabase
+        .from("pacientes")
+        .select("id")
+        .eq("cpf", cpf.trim())
+        .maybeSingle();
+
+      if (existente) {
+        toast.error("Já existe um paciente cadastrado com este CPF");
+        return;
+      }
+
+      const leito = leitosLivresDb[Math.floor(Math.random() * leitosLivresDb.length)]!;
+
+      const { data: novoPaciente, error: erroPaciente } = await supabase
+        .from("pacientes")
+        .insert({
+          nome: nome.trim(),
+          cpf: cpf.trim(),
+          data_nascimento: dataNascimento,
+          genero,
+          convenio: convenio.trim() || null,
+          contato_emergencia: contatoEmergencia.trim() || null,
+          numero_emergencia: numeroEmergencia.trim() || null,
+          alergias: alergias.trim() || null,
+        })
+        .select("id")
+        .single();
+
+      if (erroPaciente) throw erroPaciente;
+
+      const { error: erroInternacao } = await supabase.from("internacoes").insert({
+        paciente_id: novoPaciente.id,
+        leito_id: leito.id,
+        diagnostico_principal: diagnostico.trim() || "A definir",
+        medico_responsavel_id: 1,
+        data_internacao: new Date().toISOString(),
+        ativo: true,
       });
 
-      if (!resp.ok) throw new Error(`servidor respondeu ${resp.status}`);
+      if (erroInternacao) {
+        await supabase.from("pacientes").delete().eq("id", novoPaciente.id);
+        throw erroInternacao;
+      }
 
-      const novo: PacienteCadastrado = await resp.json();
-      toast.success(
-        novo.leito
-          ? `Paciente cadastrado no leito ${novo.leito}!`
-          : "Paciente cadastrado com sucesso!"
-      );
-      setNome(""); setCpf(""); setDataNascimento(""); setConvenio(""); setDiagnostico("");
-      setLgpd(false); setCamera(false);
-      await carregar();
-    } catch (err) {
-      toast.error(`Falha ao cadastrar paciente: ${(err as Error).message}`);
+      await supabase.from("leitos").update({ status: "ocupado" }).eq("id", leito.id);
+
+      toast.success(`Paciente cadastrado no leito ${leito.numero}!`);
+      limparFormulario();
+      await Promise.all([
+        carregar(),
+        queryClient.invalidateQueries({ queryKey: ["internacoes"] }),
+      ]);
+    } catch (err: any) {
+      toast.error(`Falha ao cadastrar paciente: ${err?.message ?? "erro inesperado"}`);
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -118,9 +193,28 @@ export const Cadastro: React.FC = () => {
             <FormField label="Nome completo" placeholder="Nome do paciente" span={2} value={nome} onChange={setNome} />
             <FormField label="CPF" placeholder="000.000.000-00" value={cpf} onChange={setCpf} />
             <FormField label="Data de nascimento" type="date" value={dataNascimento} onChange={setDataNascimento} />
-            <FormField label="Convênio" placeholder="Ex.: SUS, Bradesco Saúde" value={convenio} onChange={setConvenio} />
 
             <div className="col-span-1">
+              <label className="text-[12px] sm:text-[12.5px] font-semibold" style={styles.fieldLabel}>
+                Sexo
+              </label>
+              <select
+                value={genero}
+                onChange={(e) => setGenero(e.target.value)}
+                className="w-full h-10 sm:h-11 border px-3 text-xs sm:text-sm outline-none mt-1.5"
+                style={styles.fieldInput}
+              >
+                <option value="">Selecione</option>
+                {GENERO_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <FormField label="Convênio" placeholder="Ex.: SUS, Bradesco Saúde" value={convenio} onChange={setConvenio} />
+
+            <div className="col-span-1 sm:col-span-2">
               <label className="text-[12px] sm:text-[12.5px] font-semibold" style={styles.fieldLabel}>
                 Leito atribuído
               </label>
@@ -133,7 +227,7 @@ export const Cadastro: React.FC = () => {
                   <span className="truncate">
                     Atribuição automática
                     {leitosLivresDb.length > 0
-                      ? ` — ${leitosLivresDb.length} disponível${leitosLivresDb.length > 1 ? "is" : ""}`
+                      ? ` — ${leitosLivresDb.length} ${leitosLivresDb.length > 1 ? "disponíveis" : "disponível"}`
                       : " — nenhum livre"}
                   </span>
                 </div>
@@ -143,8 +237,25 @@ export const Cadastro: React.FC = () => {
               </p>
             </div>
 
-            <FormField label="Contato de emergência" placeholder="Nome e telefone" span={2} />
-            <FormField label="Alergias conhecidas" placeholder="Ex.: Dipirona, látex" span={2} />
+            <FormField
+              label="Contato de emergência"
+              placeholder="Nome do contato"
+              value={contatoEmergencia}
+              onChange={setContatoEmergencia}
+            />
+            <FormField
+              label="Telefone de emergência"
+              placeholder="(11) 90000-0000"
+              value={numeroEmergencia}
+              onChange={setNumeroEmergencia}
+            />
+            <FormField
+              label="Alergias conhecidas"
+              placeholder="Ex.: Dipirona, látex"
+              span={2}
+              value={alergias}
+              onChange={setAlergias}
+            />
 
             <div className="col-span-1 sm:col-span-2">
               <label className="text-[12px] sm:text-[12.5px] font-semibold" style={styles.fieldLabel}>
@@ -190,11 +301,11 @@ export const Cadastro: React.FC = () => {
 
           <button
             onClick={handleCadastrar}
-            disabled={!podeSubmeter}
+            disabled={!podeSubmeter || salvando}
             className="w-full h-11 sm:h-12 text-white font-semibold text-xs sm:text-sm mt-5 sm:mt-6 flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
-            style={getSubmitButtonStyle(podeSubmeter)}
+            style={getSubmitButtonStyle(podeSubmeter && !salvando)}
           >
-            <Save size={16} /> Cadastrar Paciente
+            <Save size={16} /> {salvando ? "Cadastrando..." : "Cadastrar Paciente"}
           </button>
         </div>
 

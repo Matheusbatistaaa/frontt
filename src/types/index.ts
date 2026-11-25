@@ -4,6 +4,21 @@ export type MoodType = "dor" | "medo" | "tristeza" | "enjoo" | "sono" | "dormind
 export type RiskLevel = "normal" | "attention" | "critical";
 export type PatientStatus = "internado" | "alta";
 
+export interface FichaPaciente {
+  cpf?: string | null | undefined;
+  dataNascimento?: string | null | undefined;
+  genero?: string | null | undefined;
+  convenio?: string | null | undefined;
+  telefone?: string | null | undefined;
+  contatoEmergencia?: string | null | undefined;
+  numeroEmergencia?: string | null | undefined;
+  alergias?: string | null | undefined;
+  diagnostico?: string | null | undefined;
+  dataInternacao?: string | null | undefined;
+  medico?: string | null | undefined;
+  observacoes?: string | null | undefined;
+}
+
 export interface Bed {
   id: string; 
   internacaoId?: string; 
@@ -16,6 +31,7 @@ export interface Bed {
   acordado: boolean;
   ts: string;
   status: PatientStatus;
+  ficha?: FichaPaciente | undefined;
 }
 
 export interface ClinicalData {

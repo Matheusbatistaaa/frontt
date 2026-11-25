@@ -8,3 +8,13 @@ export interface Medicamento {
   status: "administrado" | "pendente" | "atrasado";
   recorrente: boolean;
 }
+
+export interface NovoMedicamentoInput {
+  internacaoId?: number | string | undefined;
+  leito: string;
+  paciente: string;
+  nome: string;
+  via: string;
+  horario: string;
+  recorrente: boolean;
+}

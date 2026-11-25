@@ -6,8 +6,9 @@ import { AlertBanner } from "../../../components/AlertBanner";
 import { SearchInput } from "../../../components/SearchInput";
 import { useInternacoes } from "../../../hooks";
 import { Bed, RiskLevel } from "../../../types";
-import { beds as mockBeds } from "../../../config/mockData";
+import { beds as mockBeds, clinicalData } from "../../../config/mockData";
 import { COLORS } from "../../../config/colors";
+import { FichaPacienteModal } from "../../../components/modals/FichaPacienteModal";
 import { dashboardStyles as styles, getRiskBadgeStyle, getFilterOptionStyle } from "./Dashboard.styles";
 
 interface DashboardProps {
@@ -37,12 +38,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
         acordado: true,
         ts: "agora",
         status: (int.ativo ? "internado" : "alta") as import("../../../types").PatientStatus,
+        ficha: {
+          cpf: int.paciente?.cpf,
+          dataNascimento: int.paciente?.data_nascimento,
+          genero: int.paciente?.genero,
+          convenio: int.paciente?.convenio,
+          telefone: int.paciente?.telefone,
+          contatoEmergencia: int.paciente?.contato_emergencia,
+          numeroEmergencia: int.paciente?.numero_emergencia,
+          alergias: int.paciente?.alergias,
+          diagnostico: int.diagnostico_principal,
+          dataInternacao: int.data_internacao,
+          medico: int.medico?.nome,
+          observacoes: int.observacoes,
+        },
       }));
     }
-    return mockBeds;
+    return mockBeds.map((bed) => ({
+      ...bed,
+      ficha: clinicalData[bed.id]
+        ? {
+            diagnostico: clinicalData[bed.id]!.diagnostico,
+            medico: clinicalData[bed.id]!.medico,
+          }
+        : undefined,
+    }));
   }, [internacoes]);
 
   const [bedsState, setBedsState] = useState<Bed[]>(initialBeds);
+  const [fichaBed, setFichaBed] = useState<Bed | null>(null);
 
   useEffect(() => {
     const hasChanged = initialBeds.some((newBed, i) => {
@@ -170,6 +194,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
               onSelect={onOpenBed}
               onChangeRisk={handleChangeRisk}
               onToggleStatus={handleToggleStatus}
+              onOpenFicha={setFichaBed}
             />
           ))}
         </div>
@@ -200,6 +225,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
           </div>
         </div>
       </div>
+
+      {fichaBed && (
+        <FichaPacienteModal bed={fichaBed} onClose={() => setFichaBed(null)} />
+      )}
     </div>
   );
 };

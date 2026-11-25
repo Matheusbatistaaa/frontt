@@ -56,3 +56,9 @@ export const getStatusToggleStyle = (isInternado: boolean) => ({
   background: isInternado ? COLORS.greenSoft : COLORS.line,
   color: isInternado ? COLORS.green : COLORS.slateSoft,
 });
+
+export const getFichaButtonStyle = () => ({
+  borderColor: COLORS.line,
+  background: COLORS.bg,
+  color: COLORS.slate,
+});
