@@ -9,11 +9,12 @@ export function useInternacoes() {
         .from('internacoes')
         .select(`
           *,
-          paciente:pacientes(nome, cpf),
+          paciente:pacientes(nome, cpf, data_nascimento, genero, convenio, telefone, contato_emergencia, numero_emergencia, alergias),
           leito:leitos(numero, status),
           medico:usuarios(nome)
         `)
-        .eq('ativo', true);
+        .eq('ativo', true)
+        .order('data_internacao', { ascending: false });
       
       if (error) throw error;
       return data;

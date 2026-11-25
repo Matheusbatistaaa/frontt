@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FileText } from "lucide-react";
 import { RiskLevel, MoodType } from "../types";
 import { BedCardProps } from "../modules/dashboard/dashboard.types";
 import { useSinaisVitais, useExpressoes } from "../hooks";
@@ -12,6 +12,7 @@ import {
   getAcordadoStyle,
   getHrBarStyle,
   getStatusToggleStyle,
+  getFichaButtonStyle,
 } from "./styles/BedCard.styles";
 
 const RISK_OPTIONS: { value: RiskLevel; label: string }[] = [
@@ -20,24 +21,27 @@ const RISK_OPTIONS: { value: RiskLevel; label: string }[] = [
   { value: "critical", label: "Crítico" },
 ];
 
-export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, onToggleStatus }) => {
+export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, onToggleStatus, onOpenFicha }) => {
   const isInternado = bed.status === "internado";
   const internacaoId = isInternado ? bed.internacaoId : undefined;
 
   const { data: vitals = [] } = useSinaisVitais(internacaoId);
   const { data: expressions = [] } = useExpressoes(internacaoId);
 
-  const latestVital = vitals[vitals.length - 1];
-  const hr = latestVital?.hr ?? bed.hr;
+  const latestVital: any = vitals[vitals.length - 1];
+  const hr = latestVital?.hr ?? latestVital?.frequencia_cardiaca ?? bed.hr;
 
-  const latestExpression = expressions[expressions.length - 1];
-  const moodName = (latestExpression?.mood ?? bed.mood) as MoodType;
+  const latestExpression: any = expressions[expressions.length - 1];
+  const moodName = (latestExpression?.mood ?? latestExpression?.emocao ?? bed.mood) as MoodType;
   const mood = moodMeta[moodName] ?? moodMeta["neutro"]!;
   const MoodIcon = mood.icon;
-  const conf = latestExpression?.confianca ?? bed.conf;
+  const conf = latestExpression?.confianca ?? latestExpression?.conf ?? bed.conf;
   const acordado = moodName !== "dormindo";
-  const hrSeries = vitals.length > 0 ? vitals.map((v) => v.hr ?? 0) : bed.hrSeries;
-  const ts = latestVital ? new Date(latestVital.registrado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : bed.ts;
+  const hrSeries = vitals.length > 0 ? vitals.map((v: any) => v.hr ?? v.frequencia_cardiaca ?? 0) : bed.hrSeries;
+  const vitalTimestamp = latestVital?.timestamp ?? latestVital?.registrado_em;
+  const ts = vitalTimestamp
+    ? new Date(vitalTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : bed.ts;
 
   const validRisk = (["normal", "attention", "critical"] as const).includes(bed.risk) ? bed.risk : "normal";
 
@@ -137,12 +141,28 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
                 <div key={i} className="w-2 rounded-full" style={getHrBarStyle(h)} />
               ))}
             </div>
-            <ChevronRight
-              size={16}
-              color={styles.chevronColor}
-              onClick={() => onSelect(bed)}
-              className="cursor-pointer"
-            />
+            <div className="flex items-center gap-1.5">
+              {onOpenFicha && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenFicha(bed);
+                  }}
+                  className="flex items-center gap-1 text-[10.5px] sm:text-[11px] font-semibold px-2 py-1 border transition-opacity hover:opacity-80"
+                  style={getFichaButtonStyle()}
+                >
+                  <FileText size={12} />
+                  Ficha
+                </button>
+              )}
+              <ChevronRight
+                size={16}
+                color={styles.chevronColor}
+                onClick={() => onSelect(bed)}
+                className="cursor-pointer"
+              />
+            </div>
           </div>
         </>
       ) : (

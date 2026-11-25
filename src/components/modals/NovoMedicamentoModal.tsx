@@ -1,21 +1,21 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { Medicamento } from "../../modules/medicamentos/medicamentos.types";
+import { NovoMedicamentoInput } from "../../modules/medicamentos/medicamentos.types";
 import { beds } from "../../config/mockData";
 import { useInternacoes } from "../../hooks";
 import { novoMedicamentoModalStyles as styles } from "./styles/NovoMedicamentoModal.styles";
 
 interface NovoMedicamentoModalProps {
   onClose: () => void;
-  onSubmit: (medicamento: Omit<Medicamento, "id" | "status">) => void;
+  onSubmit: (medicamento: NovoMedicamentoInput) => Promise<boolean>;
 }
 
-const VIA_OPTIONS = ["EV", "VO", "SC", "IM", "Inalatória", "Tópica"];
+const VIA_OPTIONS = ["EV", "VO", "SC", "IM"];
 
 export const NovoMedicamentoModal: React.FC<NovoMedicamentoModalProps> = ({ onClose, onSubmit }) => {
   const { data: internacoes = [] } = useInternacoes();
-  const [leito, setLeito] = useState("");
+  const [pacienteValue, setPacienteValue] = useState("");
   const [nome, setNome] = useState("");
   const [via, setVia] = useState(VIA_OPTIONS[0]);
   const [horario, setHorario] = useState("");
@@ -24,40 +24,40 @@ export const NovoMedicamentoModal: React.FC<NovoMedicamentoModalProps> = ({ onCl
 
   const pacientesDisponiveis = internacoes && internacoes.length > 0
     ? internacoes.map((int: any) => ({
-        id: String(int.leito?.numero || int.leito_id || "402"),
-        name: int.paciente?.nome || "Paciente",
+        value: String(int.id),
+        internacaoId: int.id as number | string,
+        leito: String(int.leito?.numero ?? int.leito_id ?? "—"),
+        nome: int.paciente?.nome || "Paciente",
       }))
     : beds.filter((b) => b.status === "internado").map((b) => ({
-        id: b.id,
-        name: b.name,
+        value: b.id,
+        internacaoId: undefined as number | string | undefined,
+        leito: b.id,
+        nome: b.name,
       }));
 
-  const pacienteSelecionado = pacientesDisponiveis.find((b) => b.id === leito);
+  const selecionado = pacientesDisponiveis.find((p) => p.value === pacienteValue);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isSubmitting) return;
-    if (!leito || !nome || !via || !horario) {
+    if (!pacienteValue || !nome || !via || !horario) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
 
     setIsSubmitting(true);
-    onSubmit({
-      leito,
-      paciente: pacienteSelecionado?.name ?? "Paciente",
+    const sucesso = await onSubmit({
+      internacaoId: selecionado?.internacaoId,
+      leito: selecionado?.leito ?? "",
+      paciente: selecionado?.nome ?? "Paciente",
       nome,
       via,
       horario,
       recorrente,
     });
-
-    toast.success(
-      recorrente
-        ? "Medicamento adicionado à rotina diária!"
-        : "Medicamento agendado!"
-    );
-    onClose();
     setIsSubmitting(false);
+
+    if (sucesso) onClose();
   };
 
   return (
@@ -83,15 +83,15 @@ export const NovoMedicamentoModal: React.FC<NovoMedicamentoModalProps> = ({ onCl
               Paciente / Leito
             </label>
             <select
-              value={leito}
-              onChange={(e) => setLeito(e.target.value)}
+              value={pacienteValue}
+              onChange={(e) => setPacienteValue(e.target.value)}
               className="w-full h-10 sm:h-11 border px-3 text-xs sm:text-sm outline-none mt-1.5"
               style={styles.fieldInput}
             >
               <option value="">Selecione o paciente</option>
               {pacientesDisponiveis.map((bed) => (
-                <option key={bed.id} value={bed.id}>
-                  {bed.name} — Leito {bed.id}
+                <option key={bed.value} value={bed.value}>
+                  {bed.nome} — Leito {bed.leito}
                 </option>
               ))}
             </select>
@@ -160,7 +160,7 @@ export const NovoMedicamentoModal: React.FC<NovoMedicamentoModalProps> = ({ onCl
             Cancelar
           </button>
           <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 h-10 sm:h-11 text-xs sm:text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed" style={styles.confirmButton}>
-            Adicionar
+            {isSubmitting ? "Adicionando..." : "Adicionar"}
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ export interface BedCardProps {
   onSelect: (bed: Bed) => void;
   onChangeRisk: (bedId: string, risk: RiskLevel) => void;
   onToggleStatus: (bedId: string) => void;
+  onOpenFicha?: (bed: Bed) => void;
 }
 
 export interface RiskAlertProps {

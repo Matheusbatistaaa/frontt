@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Pill, Clock, AlertCircle, CheckCircle2, Syringe, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { TopBar } from "../../shared/components";
 import { COLORS } from "../../config/colors";
-import { Medicamento } from "./medicamentos.types";
+import { Medicamento, NovoMedicamentoInput } from "./medicamentos.types";
 import { NovoMedicamentoModal } from "../../components/modals/NovoMedicamentoModal";
 import {
   medicamentosStyles as styles,
@@ -41,55 +42,143 @@ const KPICard: React.FC<KPICardProps> = ({ icon: Icon, label, value, accent }) =
   </div>
 );
 
-const MOCK_MEDICAMENTOS: Medicamento[] = [
-  { id: "m1", leito: "402", paciente: "M. Silva", nome: "Morfina 10mg IV", via: "Intravenosa", horario: "14:00", status: "atrasado", recorrente: false },
-  { id: "m2", leito: "403", paciente: "J. Andrade", nome: "Dipirona 1g EV", via: "Endovenosa", horario: "14:30", status: "pendente", recorrente: true },
-  { id: "m3", leito: "404", paciente: "R. Costa", nome: "Fentanil 50mcg", via: "Bomba de Infusão", horario: "12:00", status: "administrado", recorrente: false },
-  { id: "m4", leito: "405", paciente: "A. Nunes", nome: "Ceftriaxona 1g IV", via: "Intravenosa", horario: "15:00", status: "pendente", recorrente: true },
-  { id: "m5", leito: "406", paciente: "C. Prado", nome: "Omeprazol 40mg EV", via: "Endovenosa", horario: "08:00", status: "administrado", recorrente: false },
-  { id: "m6", leito: "407", paciente: "L. Ferreira", nome: "Midazolam 5mg IV", via: "Intravenosa", horario: "16:00", status: "pendente", recorrente: false },
-  { id: "m7", leito: "408", paciente: "P. Martins", nome: "Salbutamol Spray", via: "Inalatória", horario: "13:30", status: "administrado", recorrente: true },
-];
+const VIA_PARA_FORMA: Record<string, string> = {
+  EV: "injecao",
+  IM: "injecao",
+  SC: "injecao",
+  VO: "comprimido",
+};
+
+const deriveStatus = (status: string, planejada?: string | null): Medicamento["status"] => {
+  if (status === "administrado") return "administrado";
+  if (planejada && new Date(planejada).getTime() < Date.now()) return "atrasado";
+  return "pendente";
+};
 
 export const Medicamentos: React.FC = () => {
   const { data: administracoes = [] } = useAdministracoes();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [localItems, setLocalItems] = useState<Medicamento[]>(MOCK_MEDICAMENTOS);
+  const [localItems, setLocalItems] = useState<Medicamento[]>([]);
 
-  const items: Medicamento[] = (administracoes && administracoes.length > 0)
-    ? administracoes.map((admin: any) => ({
-        id: admin.id,
-        leito: admin.prescricao?.internacao?.leito?.numero || "402",
-        paciente: admin.prescricao?.internacao?.paciente?.nome || "M. Silva",
-        nome: admin.prescricao?.medicamento?.nome || "Medicamento",
-        via: admin.prescricao?.via_administracao || admin.prescricao?.medicamento?.forma_farmaceutica || "Oral",
-        horario: admin.data_hora_planejada ? new Date(admin.data_hora_planejada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "14:00",
-        status: admin.status as any,
-        recorrente: false,
-      }))
-    : localItems;
+  const remotos: Medicamento[] = (administracoes || []).map((admin: any) => {
+    const planejada = admin.data_hora_planejada ?? admin.horario_previsto;
+    return {
+      id: admin.id,
+      leito: String(admin.prescricao?.internacao?.leito?.numero ?? "—"),
+      paciente: admin.prescricao?.internacao?.paciente?.nome || "Paciente",
+      nome: admin.prescricao?.medicamento?.nome || "Medicamento",
+      via: admin.prescricao?.via_administracao || admin.prescricao?.medicamento?.forma_farmaceutica || "Oral",
+      horario: planejada ? new Date(planejada).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—",
+      status: deriveStatus(admin.status, planejada),
+      recorrente: false,
+    };
+  });
 
-  const toggleAdministrado = async (id: string, currentStatus: string) => {
+  const items: Medicamento[] = [...remotos, ...localItems];
+
+  const toggleAdministrado = async (id: string | number, currentStatus: string) => {
     const newStatus = currentStatus === "administrado" ? "pendente" : "administrado";
 
-    setLocalItems((prev) => prev.map((m) => (m.id === id ? { ...m, status: newStatus as any } : m)));
+    if (typeof id === "string" && id.startsWith("local-")) {
+      setLocalItems((prev) => prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m)));
+      return;
+    }
 
-    queryClient.setQueryData(['administracoes', undefined], (old: any) => {
-      if (!old) return old;
+    queryClient.setQueryData(["administracoes", undefined], (old: any) => {
+      if (!Array.isArray(old)) return old;
       return old.map((m: any) => (m.id === id ? { ...m, status: newStatus } : m));
     });
 
-    try {
-      await supabase
-        .from('administracoes_medicamento')
-        .update({ status: newStatus })
-        .eq('id', id);
-    } catch {}  };
+    const { error } = await supabase
+      .from("administracoes_medicamento")
+      .update({
+        status: newStatus,
+        data_hora_administrada: newStatus === "administrado" ? new Date().toISOString() : null,
+      })
+      .eq("id", id);
 
-  const handleAddMedicamento = (novo: Omit<Medicamento, "id" | "status">) => {
-    setLocalItems((prev) => [...prev, { ...novo, id: `m${Date.now()}`, status: "pendente" }]);
-    setIsModalOpen(false);
+    if (error) {
+      toast.error("Não foi possível atualizar a administração.");
+      queryClient.invalidateQueries({ queryKey: ["administracoes"] });
+      return;
+    }
+
+    toast.success(newStatus === "administrado" ? "Dose confirmada." : "Dose reaberta.");
+    queryClient.invalidateQueries({ queryKey: ["administracoes"] });
+  };
+
+  const handleAddMedicamento = async (novo: NovoMedicamentoInput): Promise<boolean> => {
+    if (!novo.internacaoId) {
+      setLocalItems((prev) => [...prev, { ...novo, id: `local-${Date.now()}`, status: "pendente" }]);
+      toast.success("Medicamento adicionado à lista.");
+      return true;
+    }
+
+    let medicamentoId: number | null = null;
+    let prescricaoId: number | null = null;
+
+    try {
+      const { data: medicamento, error: erroMedicamento } = await supabase
+        .from("medicamentos")
+        .insert({
+          nome: novo.nome.trim(),
+          principio_ativo: novo.nome.trim(),
+          forma_farmaceutica: VIA_PARA_FORMA[novo.via] ?? "injecao",
+        })
+        .select("id")
+        .single();
+
+      if (erroMedicamento) throw erroMedicamento;
+      medicamentoId = medicamento.id;
+
+      const { data: prescricao, error: erroPrescricao } = await supabase
+        .from("prescricoes_medicamentos")
+        .insert({
+          internacao_id: novo.internacaoId,
+          medicamento_id: medicamento.id,
+          prescrito_por_id: 1,
+          dosagem: "—",
+          via_administracao: novo.via,
+          frequencia: novo.recorrente ? "diária" : "dose única",
+          data_inicio: new Date().toISOString(),
+          status: "ativa",
+        })
+        .select("id")
+        .single();
+
+      if (erroPrescricao) throw erroPrescricao;
+      prescricaoId = prescricao.id;
+
+      const [hora, minuto] = novo.horario.split(":").map(Number);
+      const agora = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      // Coluna timestamp sem fuso: gravar a hora local "de parede" evita deslocamento.
+      const planejada = `${agora.getFullYear()}-${pad(agora.getMonth() + 1)}-${pad(agora.getDate())}T${pad(hora || 0)}:${pad(minuto || 0)}:00`;
+
+      const { error: erroAdministracao } = await supabase
+        .from("administracoes_medicamento")
+        .insert({
+          prescricao_id: prescricao.id,
+          data_hora_planejada: planejada,
+          status: "pendente",
+        });
+
+      if (erroAdministracao) throw erroAdministracao;
+
+      toast.success(
+        novo.recorrente
+          ? "Medicamento adicionado à rotina diária!"
+          : "Medicamento agendado!"
+      );
+      await queryClient.invalidateQueries({ queryKey: ["administracoes"] });
+      return true;
+    } catch (err: any) {
+      if (prescricaoId) await supabase.from("prescricoes_medicamentos").delete().eq("id", prescricaoId);
+      if (medicamentoId) await supabase.from("medicamentos").delete().eq("id", medicamentoId);
+      toast.error(`Falha ao cadastrar medicamento: ${err?.message ?? "erro inesperado"}`);
+      return false;
+    }
   };
 
   const pendentesOuAtrasados = items.filter((m) => m.status !== "administrado").length;
@@ -135,7 +224,12 @@ export const Medicamentos: React.FC = () => {
             ))}
           </div>
           <div>
-            {items.sort((a, b) => a.horario.localeCompare(b.horario)).map((m) => {
+            {items.length === 0 && (
+              <p className="px-4 sm:px-5 py-6 text-xs sm:text-sm" style={{ color: COLORS.slateSoft }}>
+                Nenhum medicamento cadastrado. Use "Novo Medicamento" para agendar a primeira dose.
+              </p>
+            )}
+            {[...items].sort((a, b) => a.horario.localeCompare(b.horario)).map((m) => {
               const cfg = statusIcons[m.status] || statusIcons["pendente"];
               const StatusIcon = statusIconMap[m.status] || Clock;
               return (
@@ -169,7 +263,7 @@ export const Medicamentos: React.FC = () => {
                   </div>
                   <div className="col-span-1 flex justify-end">
                     <button
-                      onClick={() => toggleAdministrado(m.id as unknown as string, m.status)}
+                      onClick={() => toggleAdministrado(m.id, m.status)}
                       className="text-[11px] font-semibold px-2.5 sm:px-3 py-1.5 border transition-opacity hover:opacity-80"
                       style={getToggleButtonStyle(m.status === "administrado")}
                     >
