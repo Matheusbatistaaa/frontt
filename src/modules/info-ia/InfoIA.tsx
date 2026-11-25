@@ -74,7 +74,7 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
   const [cameraError, setCameraError] = useState<string>("");
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectedEmotion, setDetectedEmotion] = useState<string | null>(null);
-  const [, setDetectedConf] = useState<number>(0);
+  const [detectedConf, setDetectedConf] = useState<number>(0);
   const [, setLastDetectionTs] = useState<string>("");
   const [showTestAiModal, setShowTestAiModal] = useState(false);
 
@@ -92,6 +92,8 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
     }
     setCameraState("idle");
     setIsDetecting(false);
+    setDetectedEmotion(null);
+    setDetectedConf(0);
   }, []);
 
   const handleSwitchBed = (newBed: Bed) => {
@@ -165,12 +167,21 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
     }
   }, [runDetection]);
 
+  const liveMood = detectedEmotion
+    ? (moodMeta[detectedEmotion] ?? moodMeta["neutro"]!)
+    : null;
+  const LiveMoodIcon = liveMood?.icon ?? null;
+
+  // Com a câmera ativa, o card mostra o resultado da IA em tempo real. O histórico do
+  // Supabase só entra quando não há detecção ao vivo (ex.: gravação indisponível).
   const latestDbMood = expressions[0]?.mood;
-  const mood = moodMeta[latestDbMood ?? currentBed.mood] ?? moodMeta["neutro"]!;
+  const mood = liveMood ?? moodMeta[latestDbMood ?? currentBed.mood] ?? moodMeta["neutro"]!;
   const MoodIcon = mood.icon;
-  const currentConf = expressions[0]?.confianca
-    ? Math.round(expressions[0].confianca * 100)
-    : currentBed.conf;
+  const currentConf = detectedEmotion
+    ? detectedConf
+    : expressions[0]?.confianca
+      ? Math.round(expressions[0].confianca * 100)
+      : currentBed.conf;
 
   const vitalsChartData = vitals.length > 0
     ? vitals.map((v) => ({
@@ -187,11 +198,6 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
     medico: "Sem Médico",
     spo2: 0,
   };
-
-  const liveMood = detectedEmotion
-    ? (moodMeta[detectedEmotion] ?? moodMeta["neutro"]!)
-    : null;
-  const LiveMoodIcon = liveMood?.icon ?? null;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">

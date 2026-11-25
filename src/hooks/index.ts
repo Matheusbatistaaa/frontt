@@ -1,6 +1,4 @@
 export * from './useAuth';
-export * from './useLeitos';
-export * from './usePacientes';
 export * from './useInternacoes';
 export * from './useSinaisVitais';
 export * from './useExpressoes';

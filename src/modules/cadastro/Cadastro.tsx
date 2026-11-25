@@ -1,11 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ClipboardList, Save, UserPlus, BedSingle } from "lucide-react";
 import { TopBar } from "../../shared/components";
-import { useLeitos, usePacientes } from "../../hooks";
-import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { cadastroStyles as styles, getSubmitButtonStyle } from "./cadastro.styles";
-import { leitosLivres as mockLeitosLivres, cadastrosRecentes as mockCadastrosRecentes } from "../../config/mockData";
+
+interface Leito {
+  id: string;
+  numero: number;
+  status: string;
+}
+
+interface PacienteCadastrado {
+  id: string;
+  nome: string;
+  leito?: number | null;
+  criadoEm?: string;
+}
 
 const FormField = ({ label, value, onChange, placeholder, type = "text", span = 1 }: any) => (
   <div className={span === 2 ? "col-span-1 sm:col-span-2" : "col-span-1"}>
@@ -24,8 +34,8 @@ const FormField = ({ label, value, onChange, placeholder, type = "text", span = 
 );
 
 export const Cadastro: React.FC = () => {
-  const { data: leitos = [], refetch: refetchLeitos } = useLeitos();
-  const { data: pacientes = [], refetch: refetchPacientes } = usePacientes();
+  const [leitos, setLeitos] = useState<Leito[]>([]);
+  const [pacientes, setPacientes] = useState<PacienteCadastrado[]>([]);
 
   const [lgpd, setLgpd] = useState(false);
   const [camera, setCamera] = useState(false);
@@ -37,21 +47,24 @@ export const Cadastro: React.FC = () => {
   const [convenio, setConvenio] = useState("");
   const [diagnostico, setDiagnostico] = useState("");
 
-  const leitosLivresDb = leitos.filter((l: any) => l.status === "livre");
-  const leitosLivresExibicao = (leitosLivresDb.length > 0)
-    ? leitosLivresDb
-    : mockLeitosLivres.map((num, i) => ({ id: `l${i}`, numero: num, status: "livre" }));
+  const carregar = useCallback(async () => {
+    try {
+      const [leitosResp, pacientesResp] = await Promise.all([
+        fetch("/api/cadastro/leitos"),
+        fetch("/api/cadastro/pacientes"),
+      ]);
+      if (leitosResp.ok) setLeitos(await leitosResp.json());
+      if (pacientesResp.ok) setPacientes(await pacientesResp.json());
+    } catch {
+      // host local fora do ar: mantém o que já está em tela
+    }
+  }, []);
 
-  const [cadastrosLocais, setCadastrosLocais] = useState<any[]>(mockCadastrosRecentes);
-  const cadastrosRecentesDb = pacientes.slice(-5).reverse();
-  const cadastrosRecentesExibicao = (cadastrosRecentesDb.length > 0)
-    ? cadastrosRecentesDb
-    : cadastrosLocais;
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
-  const atribuirLeitoAleatorio = (): any => {
-    if (leitosLivresExibicao.length === 0) return null;
-    return leitosLivresExibicao[Math.floor(Math.random() * leitosLivresExibicao.length)];
-  };
+  const leitosLivresDb = leitos.filter((l) => l.status === "livre");
 
   const handleCadastrar = async () => {
     if (!nome || !cpf || !dataNascimento) {
@@ -60,49 +73,31 @@ export const Cadastro: React.FC = () => {
     }
 
     try {
-      const { data: novoPaciente, error: pacError } = await supabase
-        .from("pacientes")
-        .insert({ nome, cpf, data_nascimento: dataNascimento, diagnostico, convenio })
-        .select()
-        .single();
+      const resp = await fetch("/api/cadastro/pacientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome,
+          cpf,
+          dataNascimento,
+          convenio,
+          diagnostico,
+        }),
+      });
 
-      if (pacError) throw pacError;
+      if (!resp.ok) throw new Error(`servidor respondeu ${resp.status}`);
 
-      const leitoAleatorio = atribuirLeitoAleatorio();
-      if (leitoAleatorio) {
-        const leitoId = leitoAleatorio.id;
-        const { error: intError } = await supabase
-          .from("internacoes")
-          .insert({
-            paciente_id: novoPaciente.id,
-            leito_id: leitoId,
-            ativo: true,
-            risco: "normal",
-            data_entrada: new Date().toISOString(),
-          });
-
-        if (intError) throw intError;
-        await supabase.from("leitos").update({ status: "ocupado" }).eq("id", leitoId);
-      }
-
+      const novo: PacienteCadastrado = await resp.json();
       toast.success(
-        leitoAleatorio
-          ? `Paciente cadastrado no leito ${leitoAleatorio.numero}!`
+        novo.leito
+          ? `Paciente cadastrado no leito ${novo.leito}!`
           : "Paciente cadastrado com sucesso!"
       );
       setNome(""); setCpf(""); setDataNascimento(""); setConvenio(""); setDiagnostico("");
       setLgpd(false); setCamera(false);
-      refetchLeitos();
-      refetchPacientes();
-    } catch {
-      const leitoDemo = atribuirLeitoAleatorio()?.numero || "410";
-      setCadastrosLocais((prev) => [
-        { nome, leito: leitoDemo, data: "Hoje · Agora", criado_em: new Date().toISOString() },
-        ...prev,
-      ]);
-      toast.success(`Paciente cadastrado no leito ${leitoDemo}!`);
-      setNome(""); setCpf(""); setDataNascimento(""); setConvenio(""); setDiagnostico("");
-      setLgpd(false); setCamera(false);
+      await carregar();
+    } catch (err) {
+      toast.error(`Falha ao cadastrar paciente: ${(err as Error).message}`);
     }
   };
 
@@ -209,7 +204,7 @@ export const Cadastro: React.FC = () => {
               Leitos disponíveis
             </p>
             <div className="flex flex-col gap-2 max-h-56 overflow-y-auto">
-              {leitosLivresExibicao.map((l: any) => (
+              {leitosLivresDb.map((l) => (
                 <div key={l.id} className="flex items-center justify-between px-2.5 sm:px-3 py-2" style={styles.bedRow}>
                   <div className="flex items-center gap-2">
                     <BedSingle size={15} color={styles.bedIconColor} />
@@ -222,6 +217,9 @@ export const Cadastro: React.FC = () => {
                   </span>
                 </div>
               ))}
+              {leitosLivresDb.length === 0 && (
+                <p className="text-xs" style={styles.cadastroInfo}>Nenhum leito livre no momento.</p>
+              )}
             </div>
           </div>
 
@@ -230,8 +228,8 @@ export const Cadastro: React.FC = () => {
               Cadastros recentes
             </p>
             <div className="flex flex-col gap-2.5 sm:gap-3 max-h-60 overflow-y-auto">
-              {cadastrosRecentesExibicao.map((c: any, i: number) => (
-                <div key={i} className="flex items-center gap-2.5 sm:gap-3 pb-2.5 sm:pb-3 border-b last:border-0" style={styles.cardBorder}>
+              {pacientes.slice(0, 5).map((c) => (
+                <div key={c.id} className="flex items-center gap-2.5 sm:gap-3 pb-2.5 sm:pb-3 border-b last:border-0" style={styles.cardBorder}>
                   <div className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0" style={styles.cadastroIconBox}>
                     <UserPlus size={15} color={styles.cadastroIconColor} />
                   </div>
@@ -240,11 +238,15 @@ export const Cadastro: React.FC = () => {
                       {c.nome}
                     </p>
                     <p className="text-[10.5px] sm:text-[11px] truncate" style={styles.cadastroInfo}>
-                      {c.leito ? `Leito ${c.leito} · ` : ""}{c.criado_em ? `Admissão: ${new Date(c.criado_em).toLocaleDateString()}` : (c.data || "Recente")}
+                      {c.leito ? `Leito ${c.leito} · ` : ""}
+                      {c.criadoEm ? `Admissão: ${new Date(c.criadoEm).toLocaleDateString()}` : "Recente"}
                     </p>
                   </div>
                 </div>
               ))}
+              {pacientes.length === 0 && (
+                <p className="text-xs" style={styles.cadastroInfo}>Nenhum cadastro ainda.</p>
+              )}
             </div>
           </div>
         </div>
