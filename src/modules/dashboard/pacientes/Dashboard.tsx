@@ -13,6 +13,7 @@ import { dashboardStyles as styles, getRiskBadgeStyle, getFilterOptionStyle } fr
 
 interface DashboardProps {
   onOpenBed: (bed: Bed) => void;
+  onOpenProntuario?: (bed: Bed) => void;
 }
 
 const FILTER_OPTIONS: { value: RiskLevel | "all"; label: string }[] = [
@@ -21,7 +22,7 @@ const FILTER_OPTIONS: { value: RiskLevel | "all"; label: string }[] = [
   { value: "attention", label: "Atenção" },
 ];
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed, onOpenProntuario }) => {
   const { data: internacoes = [], isLoading } = useInternacoes();
 
   const initialBeds = useMemo(() => {
@@ -195,6 +196,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed }) => {
               onChangeRisk={handleChangeRisk}
               onToggleStatus={handleToggleStatus}
               onOpenFicha={setFichaBed}
+              onOpenProntuario={onOpenProntuario}
             />
           ))}
         </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   FileText,
@@ -24,6 +24,48 @@ import {
   ExameItem,
 } from "./Prontuario.types";
 import { SelecionarPacienteModal } from "../../components/modals/SelecionarPacienteModal";
+import { usePrescricoes, useSinaisVitais } from "../../hooks";
+import { Bed } from "../../types";
+
+interface ProntuarioProps {
+  initialBed?: Bed | null | undefined;
+  onBack?: (() => void) | undefined;
+}
+
+const calcularIdade = (dataNascimento?: string | null) => {
+  if (!dataNascimento) return 0;
+  const nascimento = new Date(dataNascimento);
+  if (Number.isNaN(nascimento.getTime())) return 0;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const diferencaMes = hoje.getMonth() - nascimento.getMonth();
+  if (diferencaMes < 0 || (diferencaMes === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade -= 1;
+  }
+  return idade > 0 ? idade : 0;
+};
+
+const pacienteFromBed = (bed: Bed): Paciente => {
+  const genero = bed.ficha?.genero;
+  return {
+    id: bed.internacaoId ?? bed.id,
+    internacaoId: bed.internacaoId,
+    nome: bed.name,
+    idade: calcularIdade(bed.ficha?.dataNascimento),
+    leito: bed.id,
+    sexo: genero === "F" ? "F" : genero === "M" ? "M" : undefined,
+    condicao: bed.ficha?.diagnostico ?? undefined,
+    diagnostico: bed.ficha?.diagnostico ?? undefined,
+    dataNascimento: bed.ficha?.dataNascimento ?? undefined,
+  };
+};
+
+const formatarData = (valor?: string | null) => {
+  if (!valor) return "";
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "";
+  return data.toLocaleDateString("pt-BR");
+};
 
 const criarPrescricaoVazia = (): PrescricaoItem => ({
   id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
@@ -65,45 +107,76 @@ function Section({ icon: Icon, title, children }: SectionProps) {
   );
 }
 
-export function Prontuario() {
-  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>({
-    id: "1",
-    nome: "Maria Silva",
-    idade: 28,
-    leito: "402",
-    sexo: "F",
-    condicao: "Pós-operatório cardíaco",
-  });
+export function Prontuario({ initialBed, onBack }: ProntuarioProps) {
+  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>(
+    () => (initialBed ? pacienteFromBed(initialBed) : null)
+  );
   const [modalTrocarAberto, setModalTrocarAberto] = useState(false);
 
-  const [queixaPrincipal, setQueixaPrincipal] = useState(
-    "Paciente refere dor torácica moderada (EVA 6/10) e leve desconforto respiratório no 3º DPO de cirurgia cardíaca."
-  );
-  const [historiaDoenca, setHistoriaDoenca] = useState(
-    "Paciente feminina, 28 anos, internada na UTI pós-cirúrgica após revascularização. Evolui com estabilidade hemodinâmica nas últimas 24h, sem arritmias ou sangramentos."
-  );
-  const [avaliacao, setAvaliacao] = useState(
-    "Bom estado geral, eupneica, corada, hidratada. Murmúrio vesicular presente bilateralmente, sem ruídos adventícios. Ferida operatória com cicatrização adequada e sem sinais flogísticos."
-  );
-  const [orientacoes, setOrientacoes] = useState(
-    "Manter cabeceira elevada a 30°. Estimular fisioterapia respiratória 2x/dia. Monitorização multiparamétrica e controle álgico otimizado."
-  );
+  const [queixaPrincipal, setQueixaPrincipal] = useState("");
+  const [historiaDoenca, setHistoriaDoenca] = useState("");
+  const [avaliacao, setAvaliacao] = useState("");
+  const [orientacoes, setOrientacoes] = useState("");
   const [sinaisVitais, setSinaisVitais] = useState<SinaisVitais>({
-    pa: "120/80",
-    fc: "78",
-    fr: "16",
-    temp: "36.5",
+    pa: "",
+    fc: "",
+    fr: "",
+    temp: "",
   });
-  const [prescricoes, setPrescricoes] = useState<PrescricaoItem[]>([
-    { id: "p1", medicamento: "Morfina 2mg IV", dose: "2mg", frequencia: "4/4h se dor", duracao: "3 dias", observacoes: "Administrar em bólus lento" },
-    { id: "p2", medicamento: "Dipirona 1g EV", dose: "1g", frequencia: "6/6h fixo", duracao: "5 dias", observacoes: "Diluir em 100ml SF 0.9%" },
-    { id: "p3", medicamento: "Enoxaparina 40mg SC", dose: "40mg", frequencia: "1x/dia", duracao: "7 dias", observacoes: "Profilaxia de TVP" },
-  ]);
-  const [exames, setExames] = useState<ExameItem[]>([
-    { id: "e1", nome: "Hemograma Completo", tipo: "laboratorial", urgencia: "urgente", observacoes: "Controle pós-operatório" },
-    { id: "e2", nome: "Gasometria Arterial", tipo: "laboratorial", urgencia: "rotina", observacoes: "Avaliação ventilatória" },
-    { id: "e3", nome: "Eletrocardiograma (ECG)", tipo: "funcional", urgencia: "rotina", observacoes: "Checagem de ritmo sinusal" },
-  ]);
+  const [prescricoes, setPrescricoes] = useState<PrescricaoItem[]>([criarPrescricaoVazia()]);
+  const [exames, setExames] = useState<ExameItem[]>([criarExameVazio()]);
+
+  const internacaoId = pacienteSelecionado?.internacaoId;
+  const { data: vitais = [] } = useSinaisVitais(internacaoId);
+  const { data: prescricoesDb = [] } = usePrescricoes(internacaoId);
+  const vitaisSemeadosRef = useRef<string | null>(null);
+  const prescricoesSemeadasRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setPacienteSelecionado(initialBed ? pacienteFromBed(initialBed) : null);
+  }, [initialBed]);
+
+  useEffect(() => {
+    setAvaliacao(pacienteSelecionado?.diagnostico ?? "");
+    vitaisSemeadosRef.current = null;
+    prescricoesSemeadasRef.current = null;
+  }, [pacienteSelecionado?.id]);
+
+  useEffect(() => {
+    if (!internacaoId || vitaisSemeadosRef.current === internacaoId) return;
+
+    const ultimo: any = vitais[vitais.length - 1];
+    if (!ultimo) return;
+
+    const temPressao =
+      ultimo.pressao_arterial_sistolica != null && ultimo.pressao_arterial_diastolica != null;
+    setSinaisVitais({
+      pa: temPressao
+        ? `${ultimo.pressao_arterial_sistolica}/${ultimo.pressao_arterial_diastolica}`
+        : "",
+      fc: ultimo.frequencia_cardiaca != null ? String(ultimo.frequencia_cardiaca) : "",
+      fr: ultimo.frequencia_respiratoria != null ? String(ultimo.frequencia_respiratoria) : "",
+      temp: ultimo.temperatura_corporal != null ? String(ultimo.temperatura_corporal) : "",
+    });
+    vitaisSemeadosRef.current = internacaoId;
+  }, [internacaoId, vitais]);
+
+  useEffect(() => {
+    if (!internacaoId || prescricoesSemeadasRef.current === internacaoId) return;
+    if (prescricoesDb.length === 0) return;
+
+    setPrescricoes(
+      prescricoesDb.map((p: any) => ({
+        id: `db-${p.id}`,
+        medicamento: p.medicamento?.nome ?? "Medicamento",
+        dose: p.dosagem ?? "",
+        frequencia: p.frequencia ?? "",
+        duracao: p.data_fim ? formatarData(p.data_fim) : "Em andamento",
+        observacoes: p.observacoes ?? p.via_administracao ?? "",
+      }))
+    );
+    prescricoesSemeadasRef.current = internacaoId;
+  }, [internacaoId, prescricoesDb]);
 
   const dataAtual = new Date().toLocaleDateString("pt-BR");
 
@@ -160,6 +233,8 @@ export function Prontuario() {
   };
 
   const handleSelecionarPaciente = (paciente: Paciente) => {
+    resetarFormulario();
+    setAvaliacao(paciente.diagnostico ?? "");
     setPacienteSelecionado(paciente);
     setModalTrocarAberto(false);
   };
@@ -179,6 +254,7 @@ export function Prontuario() {
         <TopBar
           title="Prontuário Médico"
           subtitle="Selecione um paciente para continuar"
+          onBack={onBack}
         />
         <SelecionarPacienteModal onSelect={handleSelecionarPaciente} />
       </div>
@@ -190,6 +266,7 @@ export function Prontuario() {
       <TopBar
         title="Prontuário Médico"
         subtitle="Histórico clínico do paciente"
+        onBack={onBack}
       />
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6">
@@ -206,7 +283,11 @@ export function Prontuario() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-[12.5px]" style={styles.patientMeta}>
             <span>Leito {pacienteSelecionado.leito}</span>
             <span style={styles.divider}>|</span>
-            <span>{pacienteSelecionado.idade} anos</span>
+            <span>
+              {pacienteSelecionado.idade > 0
+                ? `${pacienteSelecionado.idade} anos`
+                : "Idade não informada"}
+            </span>
             <span style={styles.divider}>|</span>
             <span>{dataAtual}</span>
             <button

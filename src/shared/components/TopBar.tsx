@@ -5,7 +5,7 @@ import { COLORS } from "../../config/colors";
 interface TopBarProps {
   title: string;
   subtitle?: string;
-  onBack?: () => void;
+  onBack?: (() => void) | undefined;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ title, subtitle, onBack }) => {

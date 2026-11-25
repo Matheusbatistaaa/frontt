@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Search, X, User, ChevronRight } from "lucide-react";
 import { Paciente } from "../../modules/prontuario/Prontuario.types";
+import { useInternacoes } from "../../hooks";
 import {
   selecionarPacienteStyles as styles,
   getPatientRowStyle,
@@ -11,7 +12,8 @@ interface SelecionarPacienteModalProps {
   onClose?: () => void;
 }
 
-const pacientes: Paciente[] = [
+// Mantém o protótipo navegável em apresentações sem conexão com o Supabase
+const PACIENTES_DEMO: Paciente[] = [
   { id: "1", nome: "Maria Silva", idade: 28, leito: "12A", sexo: "F", condicao: "Pós-operatório" },
   { id: "2", nome: "João Pereira", idade: 64, leito: "07B", sexo: "M", condicao: "Insuficiência respiratória" },
   { id: "3", nome: "Ana Costa", idade: 45, leito: "03A", sexo: "F", condicao: "Sepse" },
@@ -20,11 +22,44 @@ const pacientes: Paciente[] = [
   { id: "6", nome: "Roberto Lima", idade: 58, leito: "11B", sexo: "M", condicao: "Politrauma" },
 ];
 
+const calcularIdade = (dataNascimento?: string | null) => {
+  if (!dataNascimento) return 0;
+  const nascimento = new Date(dataNascimento);
+  if (Number.isNaN(nascimento.getTime())) return 0;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const diferencaMes = hoje.getMonth() - nascimento.getMonth();
+  if (diferencaMes < 0 || (diferencaMes === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade -= 1;
+  }
+  return idade > 0 ? idade : 0;
+};
+
 export function SelecionarPacienteModal({
   onSelect,
   onClose,
 }: SelecionarPacienteModalProps) {
   const [busca, setBusca] = useState("");
+  const { data: internacoes = [], isLoading } = useInternacoes();
+
+  const pacientes = useMemo<Paciente[]>(() => {
+    if (internacoes.length === 0) return PACIENTES_DEMO;
+
+    return internacoes.map((int: any) => {
+      const genero = int.paciente?.genero;
+      return {
+        id: String(int.id),
+        internacaoId: String(int.id),
+        nome: int.paciente?.nome || "Paciente sem nome",
+        idade: calcularIdade(int.paciente?.data_nascimento),
+        leito: String(int.leito?.numero ?? "—"),
+        sexo: genero === "F" ? "F" : genero === "M" ? "M" : undefined,
+        condicao: int.diagnostico_principal ?? undefined,
+        diagnostico: int.diagnostico_principal ?? undefined,
+        dataNascimento: int.paciente?.data_nascimento ?? undefined,
+      } satisfies Paciente;
+    });
+  }, [internacoes]);
 
   const pacientesFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -34,7 +69,7 @@ export function SelecionarPacienteModal({
         p.nome.toLowerCase().includes(termo) ||
         p.leito.toLowerCase().includes(termo)
     );
-  }, [busca]);
+  }, [busca, pacientes]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4" style={styles.overlay}>
@@ -77,7 +112,11 @@ export function SelecionarPacienteModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-2.5 sm:px-3 pb-3">
-          {pacientesFiltrados.length === 0 ? (
+          {isLoading ? (
+            <p className="text-center text-xs sm:text-[13px] py-8" style={styles.emptyText}>
+              Carregando pacientes...
+            </p>
+          ) : pacientesFiltrados.length === 0 ? (
             <p className="text-center text-xs sm:text-[13px] py-8" style={styles.emptyText}>
               Nenhum paciente encontrado.
             </p>
@@ -101,7 +140,9 @@ export function SelecionarPacienteModal({
                       {paciente.nome}
                     </p>
                     <p className="text-[10.5px] sm:text-[11.5px] truncate" style={styles.patientMeta}>
-                      Leito {paciente.leito} • {paciente.idade} anos • {paciente.condicao}
+                      Leito {paciente.leito}
+                      {paciente.idade > 0 ? ` • ${paciente.idade} anos` : ""}
+                      {paciente.condicao ? ` • ${paciente.condicao}` : ""}
                     </p>
                   </div>
                   <ChevronRight size={15} color={styles.chevronColor as string} className="shrink-0" />

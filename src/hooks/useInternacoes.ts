@@ -17,7 +17,20 @@ export function useInternacoes() {
         .order('data_internacao', { ascending: false });
       
       if (error) throw error;
-      return data;
+
+      // Internações duplicadas para o mesmo paciente/leito: mantém a original (menor id)
+      const porPacienteLeito = new Map<string, any>();
+      for (const internacao of data ?? []) {
+        const chave = `${internacao.paciente_id}:${internacao.leito_id}`;
+        const atual = porPacienteLeito.get(chave);
+        if (!atual || Number(internacao.id) < Number(atual.id)) {
+          porPacienteLeito.set(chave, internacao);
+        }
+      }
+
+      return [...porPacienteLeito.values()].sort(
+        (a, b) => new Date(b.data_internacao).getTime() - new Date(a.data_internacao).getTime()
+      );
     },
   });
 }

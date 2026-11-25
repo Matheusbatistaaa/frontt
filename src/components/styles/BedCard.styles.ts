@@ -62,3 +62,9 @@ export const getFichaButtonStyle = () => ({
   background: COLORS.bg,
   color: COLORS.slate,
 });
+
+export const getProntuarioButtonStyle = () => ({
+  borderColor: COLORS.orange,
+  background: COLORS.orangeSoft,
+  color: COLORS.orangeDark,
+});
