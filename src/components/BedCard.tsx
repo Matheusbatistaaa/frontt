@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, ClipboardList, FileText } from "lucide-react";
 import { RiskLevel, MoodType } from "../types";
 import { BedCardProps } from "../modules/dashboard/dashboard.types";
 import { useSinaisVitais, useExpressoes } from "../hooks";
@@ -21,7 +21,7 @@ const RISK_OPTIONS: { value: RiskLevel; label: string }[] = [
   { value: "critical", label: "Crítico" },
 ];
 
-export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, onToggleStatus, onOpenFicha }) => {
+export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, onToggleStatus, onOpenFicha, onOpenProntuario }) => {
   const isInternado = bed.status === "internado";
   const internacaoId = isInternado ? bed.internacaoId : undefined;
 
@@ -135,13 +135,13 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex gap-1">
               {hrSeries.slice(-3).map((h, i) => (
                 <div key={i} className="w-2 rounded-full" style={getHrBarStyle(h)} />
               ))}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {onOpenFicha && (
                 <button
                   type="button"
@@ -154,6 +154,20 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
                 >
                   <FileText size={12} />
                   Ficha
+                </button>
+              )}
+              {onOpenProntuario && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenProntuario(bed);
+                  }}
+                  className="flex items-center gap-1 text-[10.5px] sm:text-[11px] font-semibold px-2 py-1 border transition-opacity hover:opacity-80"
+                  style={getFichaButtonStyle()}
+                >
+                  <ClipboardList size={12} />
+                  Prontuário
                 </button>
               )}
               <ChevronRight

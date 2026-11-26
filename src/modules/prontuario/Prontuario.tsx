@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   FileText,
@@ -24,6 +24,7 @@ import {
   ExameItem,
 } from "./Prontuario.types";
 import { SelecionarPacienteModal } from "../../components/modals/SelecionarPacienteModal";
+import { Bed } from "../../types";
 
 const criarPrescricaoVazia = (): PrescricaoItem => ({
   id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
@@ -41,6 +42,72 @@ const criarExameVazio = (): ExameItem => ({
   urgencia: "",
   observacoes: "",
 });
+
+interface ProntuarioProps {
+  bed?: Bed | null;
+}
+
+const calcularIdade = (dataNascimento?: string | null) => {
+  if (!dataNascimento) return undefined;
+  const somenteData = /^(\d{4})-(\d{2})-(\d{2})/.exec(dataNascimento);
+  const data = somenteData
+    ? new Date(Number(somenteData[1]), Number(somenteData[2]) - 1, Number(somenteData[3]))
+    : new Date(dataNascimento);
+  if (Number.isNaN(data.getTime())) return undefined;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - data.getFullYear();
+  const aniversario = hoje.getMonth() - data.getMonth();
+  if (aniversario < 0 || (aniversario === 0 && hoje.getDate() < data.getDate())) idade -= 1;
+  return idade >= 0 ? idade : undefined;
+};
+
+const criarPaciente = (bed?: Bed | null): Paciente => {
+  if (!bed) {
+    return { id: "1", nome: "Maria Silva", idade: 28, leito: "402", sexo: "F", condicao: "Pós-operatório cardíaco" };
+  }
+
+  const genero = bed.ficha?.genero;
+  return {
+    id: bed.internacaoId ?? bed.id,
+    nome: bed.name,
+    idade: calcularIdade(bed.ficha?.dataNascimento),
+    leito: bed.id,
+    sexo: genero === "M" || genero === "F" ? genero : undefined,
+    condicao: bed.ficha?.diagnostico ?? undefined,
+  };
+};
+
+const criarFormularioInicial = (bed?: Bed | null) => {
+  if (!bed) {
+    return {
+      queixaPrincipal: "Paciente refere dor torácica moderada (EVA 6/10) e leve desconforto respiratório no 3º DPO de cirurgia cardíaca.",
+      historiaDoenca: "Paciente feminina, 28 anos, internada na UTI pós-cirúrgica após revascularização. Evolui com estabilidade hemodinâmica nas últimas 24h, sem arritmias ou sangramentos.",
+      avaliacao: "Bom estado geral, eupneica, corada, hidratada. Murmúrio vesicular presente bilateralmente, sem ruídos adventícios. Ferida operatória com cicatrização adequada e sem sinais flogísticos.",
+      orientacoes: "Manter cabeceira elevada a 30°. Estimular fisioterapia respiratória 2x/dia. Monitorização multiparamétrica e controle álgico otimizado.",
+      sinaisVitais: { pa: "120/80", fc: "78", fr: "16", temp: "36.5" } as SinaisVitais,
+      prescricoes: [
+        { id: "p1", medicamento: "Morfina 2mg IV", dose: "2mg", frequencia: "4/4h se dor", duracao: "3 dias", observacoes: "Administrar em bólus lento" },
+        { id: "p2", medicamento: "Dipirona 1g EV", dose: "1g", frequencia: "6/6h fixo", duracao: "5 dias", observacoes: "Diluir em 100ml SF 0.9%" },
+        { id: "p3", medicamento: "Enoxaparina 40mg SC", dose: "40mg", frequencia: "1x/dia", duracao: "7 dias", observacoes: "Profilaxia de TVP" },
+      ] as PrescricaoItem[],
+      exames: [
+        { id: "e1", nome: "Hemograma Completo", tipo: "laboratorial", urgencia: "urgente", observacoes: "Controle pós-operatório" },
+        { id: "e2", nome: "Gasometria Arterial", tipo: "laboratorial", urgencia: "rotina", observacoes: "Avaliação ventilatória" },
+        { id: "e3", nome: "Eletrocardiograma (ECG)", tipo: "funcional", urgencia: "rotina", observacoes: "Checagem de ritmo sinusal" },
+      ] as ExameItem[],
+    };
+  }
+
+  return {
+    queixaPrincipal: "",
+    historiaDoenca: "",
+    avaliacao: bed.ficha?.diagnostico ?? "",
+    orientacoes: bed.ficha?.observacoes ?? "",
+    sinaisVitais: { pa: "", fc: String(bed.hr), fr: "", temp: "" } as SinaisVitais,
+    prescricoes: [criarPrescricaoVazia()],
+    exames: [criarExameVazio()],
+  };
+};
 
 interface SectionProps {
   icon: React.ElementType;
@@ -65,45 +132,18 @@ function Section({ icon: Icon, title, children }: SectionProps) {
   );
 }
 
-export function Prontuario() {
-  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>({
-    id: "1",
-    nome: "Maria Silva",
-    idade: 28,
-    leito: "402",
-    sexo: "F",
-    condicao: "Pós-operatório cardíaco",
-  });
+export function Prontuario({ bed }: ProntuarioProps) {
+  const initialForm = useMemo(() => criarFormularioInicial(bed), [bed]);
+  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>(() => criarPaciente(bed));
   const [modalTrocarAberto, setModalTrocarAberto] = useState(false);
 
-  const [queixaPrincipal, setQueixaPrincipal] = useState(
-    "Paciente refere dor torácica moderada (EVA 6/10) e leve desconforto respiratório no 3º DPO de cirurgia cardíaca."
-  );
-  const [historiaDoenca, setHistoriaDoenca] = useState(
-    "Paciente feminina, 28 anos, internada na UTI pós-cirúrgica após revascularização. Evolui com estabilidade hemodinâmica nas últimas 24h, sem arritmias ou sangramentos."
-  );
-  const [avaliacao, setAvaliacao] = useState(
-    "Bom estado geral, eupneica, corada, hidratada. Murmúrio vesicular presente bilateralmente, sem ruídos adventícios. Ferida operatória com cicatrização adequada e sem sinais flogísticos."
-  );
-  const [orientacoes, setOrientacoes] = useState(
-    "Manter cabeceira elevada a 30°. Estimular fisioterapia respiratória 2x/dia. Monitorização multiparamétrica e controle álgico otimizado."
-  );
-  const [sinaisVitais, setSinaisVitais] = useState<SinaisVitais>({
-    pa: "120/80",
-    fc: "78",
-    fr: "16",
-    temp: "36.5",
-  });
-  const [prescricoes, setPrescricoes] = useState<PrescricaoItem[]>([
-    { id: "p1", medicamento: "Morfina 2mg IV", dose: "2mg", frequencia: "4/4h se dor", duracao: "3 dias", observacoes: "Administrar em bólus lento" },
-    { id: "p2", medicamento: "Dipirona 1g EV", dose: "1g", frequencia: "6/6h fixo", duracao: "5 dias", observacoes: "Diluir em 100ml SF 0.9%" },
-    { id: "p3", medicamento: "Enoxaparina 40mg SC", dose: "40mg", frequencia: "1x/dia", duracao: "7 dias", observacoes: "Profilaxia de TVP" },
-  ]);
-  const [exames, setExames] = useState<ExameItem[]>([
-    { id: "e1", nome: "Hemograma Completo", tipo: "laboratorial", urgencia: "urgente", observacoes: "Controle pós-operatório" },
-    { id: "e2", nome: "Gasometria Arterial", tipo: "laboratorial", urgencia: "rotina", observacoes: "Avaliação ventilatória" },
-    { id: "e3", nome: "Eletrocardiograma (ECG)", tipo: "funcional", urgencia: "rotina", observacoes: "Checagem de ritmo sinusal" },
-  ]);
+  const [queixaPrincipal, setQueixaPrincipal] = useState(initialForm.queixaPrincipal);
+  const [historiaDoenca, setHistoriaDoenca] = useState(initialForm.historiaDoenca);
+  const [avaliacao, setAvaliacao] = useState(initialForm.avaliacao);
+  const [orientacoes, setOrientacoes] = useState(initialForm.orientacoes);
+  const [sinaisVitais, setSinaisVitais] = useState<SinaisVitais>(initialForm.sinaisVitais);
+  const [prescricoes, setPrescricoes] = useState<PrescricaoItem[]>(initialForm.prescricoes);
+  const [exames, setExames] = useState<ExameItem[]>(initialForm.exames);
 
   const dataAtual = new Date().toLocaleDateString("pt-BR");
 
@@ -206,7 +246,7 @@ export function Prontuario() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-[12.5px]" style={styles.patientMeta}>
             <span>Leito {pacienteSelecionado.leito}</span>
             <span style={styles.divider}>|</span>
-            <span>{pacienteSelecionado.idade} anos</span>
+            <span>{pacienteSelecionado.idade !== undefined ? `${pacienteSelecionado.idade} anos` : "Idade não informada"}</span>
             <span style={styles.divider}>|</span>
             <span>{dataAtual}</span>
             <button

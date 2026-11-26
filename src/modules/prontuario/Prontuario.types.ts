@@ -1,10 +1,10 @@
 export interface Paciente {
   id: string;
   nome: string;
-  idade: number;
+  idade?: number | undefined;
   leito: string;
-  sexo?: "M" | "F";
-  condicao?: string;
+  sexo?: "M" | "F" | undefined;
+  condicao?: string | undefined;
 }
 
 export interface SinaisVitais {

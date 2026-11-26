@@ -174,19 +174,18 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
 
   // Com a câmera ativa, o card mostra o resultado da IA em tempo real. O histórico do
   // Supabase só entra quando não há detecção ao vivo (ex.: gravação indisponível).
-  const latestDbMood = expressions[0]?.mood;
+  const latestDbExpression = expressions[expressions.length - 1];
+  const latestDbMood = latestDbExpression?.emocao ?? latestDbExpression?.mood;
   const mood = liveMood ?? moodMeta[latestDbMood ?? currentBed.mood] ?? moodMeta["neutro"]!;
   const MoodIcon = mood.icon;
   const currentConf = detectedEmotion
     ? detectedConf
-    : expressions[0]?.confianca
-      ? Math.round(expressions[0].confianca * 100)
-      : currentBed.conf;
+    : latestDbExpression?.confianca ?? currentBed.conf;
 
   const vitalsChartData = vitals.length > 0
     ? vitals.map((v) => ({
-        t: new Date(v.registrado_em).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        hr: v.hr ?? 0,
+        t: new Date(v.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        hr: v.frequencia_cardiaca ?? 0,
         spo2: v.spo2 ?? 0,
       }))
     : vitalsData;

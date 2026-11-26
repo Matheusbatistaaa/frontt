@@ -30,6 +30,7 @@ export default function PerceptAIPrototype() {
   const [selectedBed, setSelectedBed] = useState<Bed>(
     (beds.find(b => b.risk === "critical") ?? beds[0])!
   );
+  const [prontuarioBed, setProntuarioBed] = useState<Bed | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [isMobileNavbarOpen, setIsMobileNavbarOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -66,6 +67,11 @@ export default function PerceptAIPrototype() {
   const openBed = (bed: Bed) => {
     setSelectedBed(bed);
     setPage("info-ia");
+  };
+
+  const openProntuario = (bed: Bed) => {
+    setProntuarioBed(bed);
+    setPage("prontuario");
   };
 
   return (
@@ -183,7 +189,7 @@ export default function PerceptAIPrototype() {
           <Sidebar current={page} onNavigate={navigate} />
           <MobileNavbar current={page} onNavigate={navigate} isOpen={isMobileNavbarOpen} onToggle={toggleMobileNavbar} />
           <div className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0 overflow-y-auto">
-            {page === "dash-pacientes" && <Dashboard onOpenBed={openBed} />}
+            {page === "dash-pacientes" && <Dashboard onOpenBed={openBed} onOpenProntuario={openProntuario} />}
             {page === "dash-medicos" && <DashMedicos onOpenBed={openBed} />}
             {page === "info-ia" && (
               <InfoIA
@@ -198,7 +204,12 @@ export default function PerceptAIPrototype() {
             {page === "cadastro" && <Cadastro />}
             {page === "visitas" && <Visitas />}
             {page === "calendario" && <Calendario />}
-            {page === "prontuario" && <Prontuario />}
+            {page === "prontuario" && (
+              <Prontuario
+                key={prontuarioBed?.internacaoId ?? prontuarioBed?.id ?? "default"}
+                bed={prontuarioBed}
+              />
+            )}
           </div>
         </div>
       )}

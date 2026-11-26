@@ -11,6 +11,7 @@ export interface BedCardProps {
   onChangeRisk: (bedId: string, risk: RiskLevel) => void;
   onToggleStatus: (bedId: string) => void;
   onOpenFicha?: (bed: Bed) => void;
+  onOpenProntuario?: (bed: Bed) => void;
 }
 
 export interface RiskAlertProps {
