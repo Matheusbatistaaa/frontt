@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const BACKEND_URL = (import.meta.env['VITE_BACKEND_URL'] ?? '').replace(/\/+$/, '');
+const BACKEND_URL = (import.meta.env['VITE_BACKEND_URL'] ?? '').trim().replace(/\/+$/, '');
 
 export interface DetectionRequest {
   Image: string;
