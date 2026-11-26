@@ -106,7 +106,7 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
       const base64 = dataUrlToBase64(dataUrl);
       setCapturedImage(base64);
 
-      addLog("Enviando para /api/detection/test-frame...");
+      addLog("Enviando para /api/test-ai...");
       const result = await testAi(base64);
 
       setTestResult(result);
