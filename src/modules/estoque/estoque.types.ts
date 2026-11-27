@@ -5,6 +5,8 @@ export interface EstoqueItem {
   quantidade: number;
   minimo: number;
   unidade: string;
+  medicamentoId?: string | number | null;
+  quantidadeMaxima?: number;
   validade?: string;
   preco?: number;
 }

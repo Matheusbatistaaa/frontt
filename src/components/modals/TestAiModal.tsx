@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from "react";
 import { X, Camera, CameraOff, Loader2, Trash2, Terminal } from "lucide-react";
 import { COLORS } from "../../config/colors";
-import { testAi, dataUrlToBase64, captureFrame } from "../../lib/detection";
+import { testAi, dataUrlToBase64, captureFrame, type TestAiResponse } from "../../lib/detection";
+import { formatTimeInBrazil } from "../../lib/dateTime";
 import { moodMeta } from "../../config/mockData";
 import { MoodType } from "../../types";
 
@@ -16,18 +17,12 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{
-    estadoFisiologico: string;
-    confiancaFisiologica: number;
-    estadoEmocional: string | null;
-    confiancaEmocional: number | null;
-    allProbabilities: Record<string, number>;
-  } | null>(null);
+  const [testResult, setTestResult] = useState<TestAiResponse | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
   const addLog = useCallback((msg: string) => {
-    setLogs((prev) => [...prev.slice(-50), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    setLogs((prev) => [...prev.slice(-50), `[${formatTimeInBrazil()}] ${msg}`]);
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -80,17 +75,18 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
       }
       setCameraActive(true);
       addLog("Câmera iniciada");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const nome = err instanceof Error ? err.name : "";
       const msg =
-        err?.name === "NotAllowedError"
+        nome === "NotAllowedError"
           ? "Permissão de câmera negada. Permita acesso nas configurações do navegador."
-          : err?.name === "NotFoundError"
+          : nome === "NotFoundError"
           ? "Nenhuma câmera encontrada"
-          : err?.name === "NotReadableError"
+          : nome === "NotReadableError"
           ? "Câmera em uso por outro app"
-          : err?.name === "AbortError"
+          : nome === "AbortError"
           ? "Reprodução interrompida. Tente novamente."
-          : "Erro ao acessar câmera: " + (err?.message || err?.name);
+          : "Erro ao acessar câmera: " + (err instanceof Error ? err.message : "erro desconhecido");
       setCameraError(msg);
       addLog(`Erro: ${msg}`);
     }
@@ -111,8 +107,8 @@ export const TestAiModal: React.FC<TestAiModalProps> = ({ open, onClose }) => {
 
       setTestResult(result);
       addLog(`Resultado: ${result.estadoFisiologico} | ${result.estadoEmocional ?? "N/A"}`);
-    } catch (err: any) {
-      addLog(`Erro no teste: ${err?.message || err}`);
+    } catch (err: unknown) {
+      addLog(`Erro no teste: ${err instanceof Error ? err.message : "erro desconhecido"}`);
     } finally {
       setIsTesting(false);
     }

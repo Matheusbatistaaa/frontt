@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   FileText,
@@ -22,8 +22,11 @@ import {
   SinaisVitais,
   PrescricaoItem,
   ExameItem,
+  ProntuarioFormData,
 } from "./Prontuario.types";
 import { SelecionarPacienteModal } from "../../components/modals/SelecionarPacienteModal";
+import { useProntuario, useSalvarProntuario } from "../../hooks";
+import { formatDateInBrazil } from "../../lib/dateTime";
 import { Bed } from "../../types";
 
 const criarPrescricaoVazia = (): PrescricaoItem => ({
@@ -61,53 +64,30 @@ const calcularIdade = (dataNascimento?: string | null) => {
   return idade >= 0 ? idade : undefined;
 };
 
-const criarPaciente = (bed?: Bed | null): Paciente => {
-  if (!bed) {
-    return { id: "1", nome: "Maria Silva", idade: 28, leito: "402", sexo: "F", condicao: "Pós-operatório cardíaco" };
-  }
+const criarPaciente = (bed?: Bed | null): Paciente | null => {
+  if (!bed?.pacienteId) return null;
 
   const genero = bed.ficha?.genero;
   return {
-    id: bed.internacaoId ?? bed.id,
+    id: bed.pacienteId,
     nome: bed.name,
     idade: calcularIdade(bed.ficha?.dataNascimento),
     leito: bed.id,
     sexo: genero === "M" || genero === "F" ? genero : undefined,
     condicao: bed.ficha?.diagnostico ?? undefined,
+    internacaoId: bed.internacaoId,
   };
 };
 
-const criarFormularioInicial = (bed?: Bed | null) => {
-  if (!bed) {
-    return {
-      queixaPrincipal: "Paciente refere dor torácica moderada (EVA 6/10) e leve desconforto respiratório no 3º DPO de cirurgia cardíaca.",
-      historiaDoenca: "Paciente feminina, 28 anos, internada na UTI pós-cirúrgica após revascularização. Evolui com estabilidade hemodinâmica nas últimas 24h, sem arritmias ou sangramentos.",
-      avaliacao: "Bom estado geral, eupneica, corada, hidratada. Murmúrio vesicular presente bilateralmente, sem ruídos adventícios. Ferida operatória com cicatrização adequada e sem sinais flogísticos.",
-      orientacoes: "Manter cabeceira elevada a 30°. Estimular fisioterapia respiratória 2x/dia. Monitorização multiparamétrica e controle álgico otimizado.",
-      sinaisVitais: { pa: "120/80", fc: "78", fr: "16", temp: "36.5" } as SinaisVitais,
-      prescricoes: [
-        { id: "p1", medicamento: "Morfina 2mg IV", dose: "2mg", frequencia: "4/4h se dor", duracao: "3 dias", observacoes: "Administrar em bólus lento" },
-        { id: "p2", medicamento: "Dipirona 1g EV", dose: "1g", frequencia: "6/6h fixo", duracao: "5 dias", observacoes: "Diluir em 100ml SF 0.9%" },
-        { id: "p3", medicamento: "Enoxaparina 40mg SC", dose: "40mg", frequencia: "1x/dia", duracao: "7 dias", observacoes: "Profilaxia de TVP" },
-      ] as PrescricaoItem[],
-      exames: [
-        { id: "e1", nome: "Hemograma Completo", tipo: "laboratorial", urgencia: "urgente", observacoes: "Controle pós-operatório" },
-        { id: "e2", nome: "Gasometria Arterial", tipo: "laboratorial", urgencia: "rotina", observacoes: "Avaliação ventilatória" },
-        { id: "e3", nome: "Eletrocardiograma (ECG)", tipo: "funcional", urgencia: "rotina", observacoes: "Checagem de ritmo sinusal" },
-      ] as ExameItem[],
-    };
-  }
-
-  return {
-    queixaPrincipal: "",
-    historiaDoenca: "",
-    avaliacao: bed.ficha?.diagnostico ?? "",
-    orientacoes: bed.ficha?.observacoes ?? "",
-    sinaisVitais: { pa: "", fc: String(bed.hr), fr: "", temp: "" } as SinaisVitais,
-    prescricoes: [criarPrescricaoVazia()],
-    exames: [criarExameVazio()],
-  };
-};
+const criarFormularioInicial = (paciente?: Paciente | null): ProntuarioFormData => ({
+  queixaPrincipal: "",
+  historiaDoenca: "",
+  avaliacao: paciente?.condicao ?? "",
+  orientacoes: "",
+  sinaisVitais: { pa: "", fc: "", fr: "", temp: "" },
+  prescricoes: [criarPrescricaoVazia()],
+  exames: [criarExameVazio()],
+});
 
 interface SectionProps {
   icon: React.ElementType;
@@ -133,8 +113,9 @@ function Section({ icon: Icon, title, children }: SectionProps) {
 }
 
 export function Prontuario({ bed }: ProntuarioProps) {
-  const initialForm = useMemo(() => criarFormularioInicial(bed), [bed]);
-  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>(() => criarPaciente(bed));
+  const initialPaciente = criarPaciente(bed);
+  const initialForm = criarFormularioInicial(initialPaciente);
+  const [pacienteSelecionado, setPacienteSelecionado] = useState<Paciente | null>(initialPaciente);
   const [modalTrocarAberto, setModalTrocarAberto] = useState(false);
 
   const [queixaPrincipal, setQueixaPrincipal] = useState(initialForm.queixaPrincipal);
@@ -144,8 +125,49 @@ export function Prontuario({ bed }: ProntuarioProps) {
   const [sinaisVitais, setSinaisVitais] = useState<SinaisVitais>(initialForm.sinaisVitais);
   const [prescricoes, setPrescricoes] = useState<PrescricaoItem[]>(initialForm.prescricoes);
   const [exames, setExames] = useState<ExameItem[]>(initialForm.exames);
+  const [loadedPatientId, setLoadedPatientId] = useState<string | null>(null);
 
-  const dataAtual = new Date().toLocaleDateString("pt-BR");
+  const {
+    data: registro,
+    isLoading,
+    isError,
+    refetch,
+  } = useProntuario(pacienteSelecionado?.id);
+  const salvarProntuario = useSalvarProntuario();
+  const carregandoProntuario = Boolean(pacienteSelecionado) &&
+    (isLoading || loadedPatientId !== pacienteSelecionado?.id);
+
+  useEffect(() => {
+    if (!pacienteSelecionado || isLoading) return;
+
+    const form: ProntuarioFormData = registro
+      ? {
+          queixaPrincipal: registro.queixa_principal ?? "",
+          historiaDoenca: registro.historia_doenca ?? "",
+          avaliacao: registro.avaliacao ?? "",
+          orientacoes: registro.orientacoes ?? "",
+          sinaisVitais: {
+            pa: registro.sinais_vitais?.pa ?? "",
+            fc: registro.sinais_vitais?.fc ?? "",
+            fr: registro.sinais_vitais?.fr ?? "",
+            temp: registro.sinais_vitais?.temp ?? "",
+          },
+          prescricoes: registro.prescricoes?.length ? registro.prescricoes : [criarPrescricaoVazia()],
+          exames: registro.exames?.length ? registro.exames : [criarExameVazio()],
+        }
+      : criarFormularioInicial(pacienteSelecionado);
+
+    setQueixaPrincipal(form.queixaPrincipal);
+    setHistoriaDoenca(form.historiaDoenca);
+    setAvaliacao(form.avaliacao);
+    setOrientacoes(form.orientacoes);
+    setSinaisVitais(form.sinaisVitais);
+    setPrescricoes(form.prescricoes);
+    setExames(form.exames);
+    setLoadedPatientId(pacienteSelecionado.id);
+  }, [pacienteSelecionado, isLoading, registro]);
+
+  const dataAtual = formatDateInBrazil(new Date());
 
   const atualizarSinalVital = (campo: keyof SinaisVitais, valor: string) => {
     setSinaisVitais((prev) => ({ ...prev, [campo]: valor }));
@@ -200,17 +222,36 @@ export function Prontuario({ bed }: ProntuarioProps) {
   };
 
   const handleSelecionarPaciente = (paciente: Paciente) => {
+    setLoadedPatientId(null);
     setPacienteSelecionado(paciente);
     setModalTrocarAberto(false);
   };
 
   const handleTrocarPaciente = () => {
-    resetarFormulario();
     setModalTrocarAberto(true);
   };
 
-  const handleSalvar = () => {
-    toast.success("Prontuário atualizado e salvo com sucesso!");
+  const handleSalvar = async () => {
+    if (!pacienteSelecionado || carregandoProntuario || isError) return;
+
+    try {
+      await salvarProntuario.mutateAsync({
+        pacienteId: pacienteSelecionado.id,
+        internacaoId: pacienteSelecionado.internacaoId,
+        form: {
+          queixaPrincipal,
+          historiaDoenca,
+          avaliacao,
+          orientacoes,
+          sinaisVitais,
+          prescricoes,
+          exames,
+        },
+      });
+      toast.success("Prontuário atualizado e salvo com sucesso!");
+    } catch (error) {
+      toast.error(`Não foi possível salvar o prontuário: ${error instanceof Error ? error.message : "erro inesperado"}`);
+    }
   };
 
   if (!pacienteSelecionado) {
@@ -260,7 +301,30 @@ export function Prontuario({ bed }: ProntuarioProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-stretch">
+        {carregandoProntuario ? (
+        <div className="flex flex-1 items-center justify-center text-sm" style={styles.patientMeta}>
+          Carregando prontuário...
+        </div>
+      ) : isError ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="text-sm font-semibold" style={styles.patientName}>
+            Não foi possível carregar o prontuário.
+          </p>
+          <p className="text-xs" style={styles.patientMeta}>
+            Verifique a conexão com o banco e tente novamente.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="px-4 py-2 text-xs font-semibold text-white"
+            style={styles.saveButton}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : (
+        <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-stretch">
           <Section icon={ClipboardList} title="Queixa principal">
             <textarea
               className="w-full flex-1 min-h-[96px] sm:min-h-[112px] border p-2.5 sm:p-3 text-xs sm:text-[13px] resize-none outline-none"
@@ -450,7 +514,7 @@ export function Prontuario({ bed }: ProntuarioProps) {
                       className="col-span-2 border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-[13px] outline-none"
                       style={styles.input}
                       value={item.tipo}
-                      onChange={(e) => atualizarExame(item.id, "tipo", e.target.value as any)}
+                      onChange={(e) => atualizarExame(item.id, "tipo", e.target.value as ExameItem["tipo"])}
                     >
                       <option value="">Selecione</option>
                       <option value="laboratorial">Laboratorial</option>
@@ -462,7 +526,7 @@ export function Prontuario({ bed }: ProntuarioProps) {
                       className="col-span-2 border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-[13px] outline-none"
                       style={styles.input}
                       value={item.urgencia}
-                      onChange={(e) => atualizarExame(item.id, "urgencia", e.target.value as any)}
+                      onChange={(e) => atualizarExame(item.id, "urgencia", e.target.value as ExameItem["urgencia"])}
                     >
                       <option value="">Selecione</option>
                       <option value="rotina">Rotina</option>
@@ -515,6 +579,8 @@ export function Prontuario({ bed }: ProntuarioProps) {
             />
           </Section>
         </div>
+        </>
+      )}
       </div>
 
       <div
@@ -523,14 +589,16 @@ export function Prontuario({ bed }: ProntuarioProps) {
       >
         <button
           onClick={resetarFormulario}
-          className="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-[13px] font-semibold border"
+          disabled={carregandoProntuario || isError || salvarProntuario.isPending}
+          className="px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-[13px] font-semibold border disabled:cursor-not-allowed disabled:opacity-50"
           style={styles.cancelButton}
         >
           Limpar
         </button>
         <button
           onClick={handleSalvar}
-          className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+          disabled={!pacienteSelecionado || carregandoProntuario || isError || salvarProntuario.isPending}
+          className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           style={styles.saveButton}
         >
           <Save size={16} />

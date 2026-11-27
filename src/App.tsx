@@ -20,16 +20,13 @@ import { Cadastro } from "./modules/cadastro";
 import { Visitas } from "./modules/visitas";
 import { Calendario } from "./modules/calendario";
 import { Placeholder } from "./modules/placeholder";
-import { beds } from "./config/mockData";
 import { Prontuario } from "./modules/prontuario";
 import { Bed } from "./types";
 
 export default function PerceptAIPrototype() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [page, setPage] = useState("dash-pacientes");
-  const [selectedBed, setSelectedBed] = useState<Bed>(
-    (beds.find(b => b.risk === "critical") ?? beds[0])!
-  );
+  const [selectedBed, setSelectedBed] = useState<Bed | null>(null);
   const [prontuarioBed, setProntuarioBed] = useState<Bed | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [isMobileNavbarOpen, setIsMobileNavbarOpen] = useState(false);
@@ -51,9 +48,8 @@ export default function PerceptAIPrototype() {
 
   const navigate = async (key: string) => {
     if (key === "login") {
-      try {
-        await signOut();
-      } catch {}      setLoggedIn(false);
+      await signOut().catch(() => undefined);
+      setLoggedIn(false);
       return;
     }
     setPage(key);
@@ -191,12 +187,17 @@ export default function PerceptAIPrototype() {
           <div className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0 overflow-y-auto">
             {page === "dash-pacientes" && <Dashboard onOpenBed={openBed} onOpenProntuario={openProntuario} />}
             {page === "dash-medicos" && <DashMedicos onOpenBed={openBed} />}
-            {page === "info-ia" && (
+            {page === "info-ia" && selectedBed && (
               <InfoIA
                 bed={selectedBed}
                 onBack={() => setPage("dash-pacientes")}
                 onSelectBed={(newBed) => setSelectedBed(newBed)}
               />
+            )}
+            {page === "info-ia" && !selectedBed && (
+              <div className="flex flex-1 items-center justify-center p-8 text-sm" style={{ color: COLORS.slate }}>
+                Selecione um paciente no dashboard para abrir o monitoramento.
+              </div>
             )}
             {page === "estoque" && <Estoque />}
             {page === "acessibilidade" && <Acessibilidade />}
@@ -206,7 +207,7 @@ export default function PerceptAIPrototype() {
             {page === "calendario" && <Calendario />}
             {page === "prontuario" && (
               <Prontuario
-                key={prontuarioBed?.internacaoId ?? prontuarioBed?.id ?? "default"}
+                key={prontuarioBed?.pacienteId ?? prontuarioBed?.internacaoId ?? prontuarioBed?.id ?? "default"}
                 bed={prontuarioBed}
               />
             )}

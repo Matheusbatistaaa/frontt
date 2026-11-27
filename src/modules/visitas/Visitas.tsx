@@ -1,16 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Info, UserCheck, Clock, UserX, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { TopBar, WireframeAvatar } from "../../shared/components";
-import { Visita } from "./visitas.types";
+import type { NovaVisitaFormData } from "./visitas.types";
 import { NovaVisitaModal } from "../../components/modals/NovaVisitaModal";
 import {
   visitasStyles as styles,
   statusCfg,
   getStatusBadgeStyle,
 } from "./Visitas.styles";
-import { useVisitas } from "../../hooks";
-import { supabase } from "../../lib/supabase";
+import {
+  useCheckInVisita,
+  useCheckOutVisita,
+  useCriarVisita,
+  useVisitas,
+} from "../../hooks";
+import { formatDateInBrazil, formatTimeInBrazil } from "../../lib/dateTime";
 
 const statusIconMap = {
   "em-andamento": UserCheck,
@@ -18,107 +23,47 @@ const statusIconMap = {
   "finalizada": UserX,
 };
 
-const MOCK_VISITAS: Visita[] = [
-  { id: "v1", leito: "402", paciente: "M. Silva", visitante: "Carlos Silva", parentesco: "Filho", entrada: "13:30", saida: "---", status: "em-andamento" },
-  { id: "v2", leito: "403", paciente: "J. Andrade", visitante: "Mariana Andrade", parentesco: "Esposa", entrada: "14:00", saida: "---", status: "em-andamento" },
-  { id: "v3", leito: "404", paciente: "R. Costa", visitante: "Lucas Costa", parentesco: "Irmão", entrada: "10:15", saida: "11:30", status: "finalizada" },
-  { id: "v4", leito: "406", paciente: "C. Prado", visitante: "Fernanda Prado", parentesco: "Filha", entrada: "16:00", saida: "17:00", status: "agendada" },
-  { id: "v5", leito: "407", paciente: "L. Ferreira", visitante: "Renata Ferreira", parentesco: "Mãe", entrada: "17:30", saida: "18:30", status: "agendada" },
-];
-
 export const Visitas: React.FC = () => {
-  const { data: supabaseVisitas = [], refetch } = useVisitas();
+  const { data: visitasList = [], isLoading, isError, refetch } = useVisitas();
   const [modalOpen, setModalOpen] = useState(false);
-  const [visitasList, setVisitasList] = useState<Visita[]>(MOCK_VISITAS);
+  const criarVisita = useCriarVisita();
+  const checkIn = useCheckInVisita();
+  const checkOut = useCheckOutVisita();
+  const visitaEmAtualizacao = checkIn.isPending
+    ? checkIn.variables
+    : checkOut.isPending
+      ? checkOut.variables
+      : null;
 
-  useEffect(() => {
-    if (supabaseVisitas && supabaseVisitas.length > 0) {
-      setVisitasList(supabaseVisitas);
-    }
-  }, [supabaseVisitas]);
-
-  const handleAddVisita = async (visita: Visita) => {
-    const novaVisita: Visita = {
-      ...visita,
-      id: visita.id || `v-${Date.now()}`,
-    };
-
-    setVisitasList((prev) => [novaVisita, ...prev]);
-    setModalOpen(false);
-
+  const handleAddVisita = async (form: NovaVisitaFormData) => {
     try {
-      const { error } = await supabase
-        .from("visitantes")
-        .insert({
-          paciente_id: 1,
-          nome_visitante: visita.visitante,
-          parentesco: visita.parentesco,
-          data_entrada: new Date().toISOString(),
-          status: "agendada",
-        });
-
-      if (error) {
-        console.warn("Aviso ao salvar no banco:", error);
-      } else {
-        refetch();
-      }
+      await criarVisita.mutateAsync(form);
+      toast.success("Visita agendada com sucesso!");
     } catch (err) {
-      console.warn("Visita registrada localmente:", err);
+      console.error("Erro ao agendar visita:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível agendar a visita.");
+      throw err;
     }
   };
 
   const handleCheckIn = async (visitaId: string) => {
-    const agora = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setVisitasList((prev) =>
-      prev.map((v) =>
-        v.id === visitaId
-          ? { ...v, status: "em-andamento", entrada: agora }
-          : v
-      )
-    );
-
-    const numericId = Number(visitaId);
-    if (!isNaN(numericId)) {
-      try {
-        await supabase
-          .from("visitantes")
-          .update({
-            status: "em-andamento",
-            data_entrada: new Date().toISOString(),
-          })
-          .eq("id", numericId);
-        refetch();
-      } catch {}
+    try {
+      await checkIn.mutateAsync(visitaId);
+      toast.success("Check-in de visitante realizado com sucesso!");
+    } catch (err) {
+      console.error("Erro ao realizar check-in:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível realizar o check-in.");
     }
-
-    toast.success("Check-in de visitante realizado com sucesso!");
   };
 
   const handleCheckOut = async (visitaId: string) => {
-    const agora = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setVisitasList((prev) =>
-      prev.map((v) =>
-        v.id === visitaId
-          ? { ...v, status: "finalizada", saida: agora }
-          : v
-      )
-    );
-
-    const numericId = Number(visitaId);
-    if (!isNaN(numericId)) {
-      try {
-        await supabase
-          .from("visitantes")
-          .update({
-            status: "finalizada",
-            data_saida: new Date().toISOString(),
-          })
-          .eq("id", numericId);
-        refetch();
-      } catch {}
+    try {
+      await checkOut.mutateAsync(visitaId);
+      toast.success("Check-out de visitante registrado!");
+    } catch (err) {
+      console.error("Erro ao realizar check-out:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível realizar o check-out.");
     }
-
-    toast.success("Check-out de visitante registrado!");
   };
 
   return (
@@ -145,11 +90,22 @@ export const Visitas: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 px-3 sm:px-6 md:px-8 py-4 sm:py-6">
-        {visitasList.map((v, i) => {
+        {isLoading ? (
+          <div className="col-span-full p-6 text-center text-sm text-slate-500">Carregando visitas...</div>
+        ) : isError ? (
+          <div className="col-span-full flex flex-col items-center gap-3 p-6 text-sm text-slate-600">
+            <p>Não foi possível carregar as visitas.</p>
+            <button type="button" onClick={() => void refetch()} className="px-3 py-2 border rounded text-xs font-semibold text-slate-600">
+              Tentar novamente
+            </button>
+          </div>
+        ) : visitasList.length === 0 ? (
+          <div className="col-span-full p-6 text-center text-sm text-slate-500">Nenhuma visita cadastrada.</div>
+        ) : visitasList.map((v) => {
           const cfg = statusCfg[v.status] || statusCfg["agendada"];
           const Icon = statusIconMap[v.status] || Clock;
           return (
-            <div key={v.id || i} className="bg-white border p-3.5 sm:p-5 flex flex-col justify-between" style={styles.card}>
+            <div key={v.id} className="bg-white border p-3.5 sm:p-5 flex flex-col justify-between" style={styles.card}>
               <div>
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <span className="kicker" style={styles.leitoLabel}>
@@ -180,28 +136,32 @@ export const Visitas: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t mt-1" style={styles.footer}>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Clock size={13} color={styles.footerIconColor} className="shrink-0" />
-                  <span className="text-[11.5px] sm:text-[12px] mono truncate" style={styles.footerTime}>
-                    {v.entrada} — {v.saida}
+                <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                  <Clock size={13} color={styles.footerIconColor} className="shrink-0 mt-0.5" />
+                  <span className="text-[11px] sm:text-[11.5px] mono leading-relaxed break-words" style={styles.footerTime}>
+                    Entrada: {formatDateInBrazil(v.dataEntrada)} {formatTimeInBrazil(v.dataEntrada)}
+                    <br />
+                    Saída: {formatDateInBrazil(v.dataSaida)} {formatTimeInBrazil(v.dataSaida)}
                   </span>
                 </div>
                 {v.status === "agendada" && (
                   <button
-                    onClick={() => handleCheckIn(v.id || "")}
-                    className="text-[11px] font-semibold px-3 py-1.5 text-white transition-opacity hover:opacity-90"
+                    onClick={() => void handleCheckIn(v.id)}
+                    disabled={visitaEmAtualizacao !== null}
+                    className="text-[11px] font-semibold px-3 py-1.5 text-white transition-opacity hover:opacity-90 disabled:opacity-60"
                     style={styles.checkinButton}
                   >
-                    Check-in
+                    {visitaEmAtualizacao === v.id ? "Registrando..." : "Check-in"}
                   </button>
                 )}
                 {v.status === "em-andamento" && (
                   <button
-                    onClick={() => handleCheckOut(v.id || "")}
-                    className="text-[11px] font-semibold px-3 py-1.5 border transition-opacity hover:opacity-80"
+                    onClick={() => void handleCheckOut(v.id)}
+                    disabled={visitaEmAtualizacao !== null}
+                    className="text-[11px] font-semibold px-3 py-1.5 border transition-opacity hover:opacity-80 disabled:opacity-60"
                     style={styles.checkoutButton}
                   >
-                    Check-out
+                    {visitaEmAtualizacao === v.id ? "Registrando..." : "Check-out"}
                   </button>
                 )}
               </div>

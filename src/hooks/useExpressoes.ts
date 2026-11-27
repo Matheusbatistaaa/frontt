@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import type { ExpressaoInfoIA } from '../modules/info-ia/info-ia.types';
 
 export function useExpressoes(internacaoId?: string) {
   const queryClient = useQueryClient();
@@ -20,10 +21,13 @@ export function useExpressoes(internacaoId?: string) {
           filter: `internacao_id=eq.${internacaoId}`,
         },
         (payload) => {
-          queryClient.setQueryData(['expressoes_faciais', internacaoId], (old: any) => {
-            if (!old) return [payload.new];
-            return [...old, payload.new].slice(-100);
-          });
+          queryClient.setQueryData<ExpressaoInfoIA[]>(
+            ['expressoes_faciais', internacaoId],
+            (old) => {
+              const registro = payload.new as ExpressaoInfoIA;
+              return [...(old ?? []), registro].slice(-100);
+            },
+          );
         }
       )
       .subscribe();
@@ -33,7 +37,7 @@ export function useExpressoes(internacaoId?: string) {
     };
   }, [internacaoId, queryClient]);
 
-  return useQuery({
+  return useQuery<ExpressaoInfoIA[]>({
     queryKey: ['expressoes_faciais', internacaoId],
     queryFn: async () => {
       if (!internacaoId) return [];

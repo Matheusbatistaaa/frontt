@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Search, X, User, ChevronRight } from "lucide-react";
 import { Paciente } from "../../modules/prontuario/Prontuario.types";
+import { usePacientes } from "../../hooks";
 import {
   selecionarPacienteStyles as styles,
   getPatientRowStyle,
@@ -11,20 +12,12 @@ interface SelecionarPacienteModalProps {
   onClose?: () => void;
 }
 
-const pacientes: Paciente[] = [
-  { id: "1", nome: "Maria Silva", idade: 28, leito: "12A", sexo: "F", condicao: "Pós-operatório" },
-  { id: "2", nome: "João Pereira", idade: 64, leito: "07B", sexo: "M", condicao: "Insuficiência respiratória" },
-  { id: "3", nome: "Ana Costa", idade: 45, leito: "03A", sexo: "F", condicao: "Sepse" },
-  { id: "4", nome: "Carlos Mendes", idade: 71, leito: "09C", sexo: "M", condicao: "AVC isquêmico" },
-  { id: "5", nome: "Beatriz Santos", idade: 33, leito: "05A", sexo: "F", condicao: "Observação clínica" },
-  { id: "6", nome: "Roberto Lima", idade: 58, leito: "11B", sexo: "M", condicao: "Politrauma" },
-];
-
 export function SelecionarPacienteModal({
   onSelect,
   onClose,
 }: SelecionarPacienteModalProps) {
   const [busca, setBusca] = useState("");
+  const { data: pacientes = [], isLoading, isError, refetch } = usePacientes();
 
   const pacientesFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -34,7 +27,7 @@ export function SelecionarPacienteModal({
         p.nome.toLowerCase().includes(termo) ||
         p.leito.toLowerCase().includes(termo)
     );
-  }, [busca]);
+  }, [busca, pacientes]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4" style={styles.overlay}>
@@ -77,7 +70,18 @@ export function SelecionarPacienteModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-2.5 sm:px-3 pb-3">
-          {pacientesFiltrados.length === 0 ? (
+          {isLoading ? (
+            <p className="text-center text-xs sm:text-[13px] py-8" style={styles.emptyText}>
+              Carregando pacientes...
+            </p>
+          ) : isError ? (
+            <div className="text-center py-8" style={styles.emptyText}>
+              <p className="text-xs sm:text-[13px]">Não foi possível carregar os pacientes.</p>
+              <button type="button" onClick={() => refetch()} className="mt-3 px-3 py-2 border text-xs font-semibold">
+                Tentar novamente
+              </button>
+            </div>
+          ) : pacientesFiltrados.length === 0 ? (
             <p className="text-center text-xs sm:text-[13px] py-8" style={styles.emptyText}>
               Nenhum paciente encontrado.
             </p>
@@ -101,7 +105,7 @@ export function SelecionarPacienteModal({
                       {paciente.nome}
                     </p>
                     <p className="text-[10.5px] sm:text-[11.5px] truncate" style={styles.patientMeta}>
-                      Leito {paciente.leito} • {paciente.idade} anos • {paciente.condicao}
+                      Leito {paciente.leito} • {paciente.idade !== undefined ? `${paciente.idade} anos` : "Idade não informada"} • {paciente.condicao}
                     </p>
                   </div>
                   <ChevronRight size={15} color={styles.chevronColor as string} className="shrink-0" />

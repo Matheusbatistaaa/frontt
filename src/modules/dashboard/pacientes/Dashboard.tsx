@@ -5,8 +5,10 @@ import { BedCard } from "../../../components/BedCard";
 import { AlertBanner } from "../../../components/AlertBanner";
 import { SearchInput } from "../../../components/SearchInput";
 import { useInternacoes } from "../../../hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "../../../lib/supabase";
 import { Bed, RiskLevel } from "../../../types";
-import { beds as mockBeds, clinicalData } from "../../../config/mockData";
 import { COLORS } from "../../../config/colors";
 import { FichaPacienteModal } from "../../../components/modals/FichaPacienteModal";
 import { dashboardStyles as styles, getRiskBadgeStyle, getFilterOptionStyle } from "./Dashboard.styles";
@@ -23,61 +25,40 @@ const FILTER_OPTIONS: { value: RiskLevel | "all"; label: string }[] = [
 ];
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed, onOpenProntuario }) => {
-  const { data: internacoes = [], isLoading } = useInternacoes();
+  const { data: internacoes = [], isLoading, isError, refetch } = useInternacoes();
+  const queryClient = useQueryClient();
 
-  const initialBeds = useMemo(() => {
-    if (internacoes && internacoes.length > 0) {
-      return internacoes.map((int: any) => ({
-        id: String(int.leito?.numero ?? "??"),
-        internacaoId: String(int.id),
-        name: int.paciente?.nome || "Desconhecido",
-        hr: 78,
-        hrSeries: [72, 75, 76, 78, 80, 78],
-        mood: "neutro" as import("../../../types").MoodType,
-        conf: 90,
-        risk: (int.risco || "normal") as import("../../../types").RiskLevel,
-        acordado: true,
-        ts: "agora",
-        status: (int.ativo ? "internado" : "alta") as import("../../../types").PatientStatus,
-        ficha: {
-          cpf: int.paciente?.cpf,
-          dataNascimento: int.paciente?.data_nascimento,
-          genero: int.paciente?.genero,
-          convenio: int.paciente?.convenio,
-          telefone: int.paciente?.telefone,
-          contatoEmergencia: int.paciente?.contato_emergencia,
-          numeroEmergencia: int.paciente?.numero_emergencia,
-          alergias: int.paciente?.alergias,
-          diagnostico: int.diagnostico_principal,
-          dataInternacao: int.data_internacao,
-          medico: int.medico?.nome,
-          observacoes: int.observacoes,
-        },
-      }));
-    }
-    return mockBeds.map((bed) => ({
-      ...bed,
-      ficha: clinicalData[bed.id]
-        ? {
-            diagnostico: clinicalData[bed.id]!.diagnostico,
-            medico: clinicalData[bed.id]!.medico,
-          }
-        : undefined,
-    }));
-  }, [internacoes]);
+  const beds = useMemo<Bed[]>(() => internacoes.map((int) => ({
+    id: String(int.leito?.numero ?? "??"),
+    pacienteId: int.paciente?.id != null ? String(int.paciente.id) : undefined,
+    leitoId: int.leito?.id != null ? String(int.leito.id) : undefined,
+    internacaoId: String(int.id),
+    name: int.paciente?.nome || "Desconhecido",
+    hr: 0,
+    hrSeries: [],
+    mood: "neutro",
+    conf: 0,
+    risk: (typeof int.risco === "string" && ["normal", "attention", "critical"].includes(int.risco) ? int.risco : "normal") as RiskLevel,
+    acordado: true,
+    ts: "—",
+    status: "internado",
+    ficha: {
+      cpf: int.paciente?.cpf,
+      dataNascimento: int.paciente?.data_nascimento,
+      genero: int.paciente?.genero,
+      convenio: int.paciente?.convenio,
+      telefone: int.paciente?.telefone,
+      contatoEmergencia: int.paciente?.contato_emergencia,
+      numeroEmergencia: int.paciente?.numero_emergencia,
+      alergias: int.paciente?.alergias,
+      diagnostico: int.diagnostico_principal,
+      dataInternacao: int.data_internacao,
+      medico: int.medico?.nome,
+      observacoes: int.observacoes,
+    },
+  })), [internacoes]);
 
-  const [bedsState, setBedsState] = useState<Bed[]>(initialBeds);
   const [fichaBed, setFichaBed] = useState<Bed | null>(null);
-
-  useEffect(() => {
-    const hasChanged = initialBeds.some((newBed, i) => {
-      const oldBed = bedsState[i];
-      return !oldBed || oldBed.internacaoId !== newBed.internacaoId || oldBed.risk !== newBed.risk || oldBed.status !== newBed.status;
-    });
-    if (hasChanged || initialBeds.length !== bedsState.length) {
-      setBedsState(initialBeds);
-    }
-  }, [initialBeds]);
 
   const [filter, setFilter] = useState<RiskLevel | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,32 +75,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed, onOpenProntuari
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleChangeRisk = (bedId: string, risk: RiskLevel) => {
-    setBedsState((prev) => prev.map((bed) =>
-      bed.id === bedId ? { ...bed, risk } : bed
-    ));
+  const handleChangeRisk = async (bedId: string, risk: RiskLevel) => {
+    const bed = beds.find((item) => item.id === bedId);
+    if (!bed?.internacaoId) return;
+
+    try {
+      const { error } = await supabase
+        .from("internacoes")
+        .update({ risco: risk })
+        .eq("id", bed.internacaoId);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["internacoes"] });
+      toast.success("Nível de risco atualizado.");
+    } catch (error) {
+      toast.error(`Não foi possível atualizar o risco: ${error instanceof Error ? error.message : "erro inesperado"}`);
+    }
   };
 
-  const handleToggleStatus = (bedId: string) => {
-    setBedsState((prev) => prev.map((bed) =>
-      bed.id === bedId ? { ...bed, status: bed.status === "internado" ? "alta" : "internado" } : bed
-    ));
+  const handleToggleStatus = async (bedId: string) => {
+    const bed = beds.find((item) => item.id === bedId);
+    if (!bed?.internacaoId || !bed.leitoId) return;
+
+    try {
+      const { error } = await supabase
+        .from("internacoes")
+        .update({ ativo: false, data_saida: new Date().toISOString() })
+        .eq("id", bed.internacaoId);
+      if (error) throw error;
+
+      const { error: erroLeito } = await supabase
+        .from("leitos")
+        .update({ status: "livre" })
+        .eq("id", bed.leitoId);
+      if (erroLeito) throw erroLeito;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["internacoes"] }),
+        queryClient.invalidateQueries({ queryKey: ["pacientes"] }),
+        queryClient.invalidateQueries({ queryKey: ["medicos"] }),
+      ]);
+      toast.success("Alta registrada e leito liberado.");
+    } catch (error) {
+      toast.error(`Não foi possível registrar a alta: ${error instanceof Error ? error.message : "erro inesperado"}`);
+    }
   };
 
-  const filteredBeds = bedsState.filter((bed) => {
+  const filteredBeds = beds.filter((bed) => {
     const matchesFilter = filter === "all" || bed.risk === filter;
     const matchesSearch = bed.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          bed.id.includes(searchTerm);
     return matchesFilter && matchesSearch;
   });
 
-  const criticalCount = bedsState.filter((b) => b.risk === "critical" && b.status === "internado").length;
-  const attentionCount = bedsState.filter((b) => b.risk === "attention" && b.status === "internado").length;
+  const criticalCount = beds.filter((b) => b.risk === "critical" && b.status === "internado").length;
+  const attentionCount = beds.filter((b) => b.risk === "attention" && b.status === "internado").length;
   const currentFilterLabel = FILTER_OPTIONS.find((opt) => opt.value === filter)?.label ?? "Todos";
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <TopBar title="Dashboard de Pacientes" subtitle={`${bedsState.length} leitos monitorados`} />
+      <TopBar title="Dashboard de Pacientes" subtitle={`${beds.length} leitos monitorados`} />
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-7 space-y-4 sm:space-y-7">
         {criticalCount > 0 && (
@@ -188,6 +202,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed, onOpenProntuari
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
           {isLoading ? (
             <p className="text-sm py-4" style={{ color: COLORS.slateSoft }}>Carregando pacientes...</p>
+          ) : isError ? (
+            <div className="col-span-full py-4">
+              <p className="text-sm" style={{ color: COLORS.red }}>Não foi possível carregar os pacientes.</p>
+              <button type="button" onClick={() => refetch()} className="mt-2 text-xs font-semibold underline" style={{ color: COLORS.orange }}>
+                Tentar novamente
+              </button>
+            </div>
+          ) : filteredBeds.length === 0 ? (
+            <p className="col-span-full text-sm py-4" style={{ color: COLORS.slateSoft }}>
+              Nenhum paciente encontrado com os filtros atuais.
+            </p>
           ) : filteredBeds.map((bed, index) => (
             <BedCard
               key={bed.internacaoId || bed.id + "-" + index}
@@ -206,7 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenBed, onOpenProntuari
             Pacientes sob monitoramento intenso
           </p>
           <div className="space-y-2">
-            {bedsState.filter((b) => b.risk === "critical" || b.risk === "attention").slice(0, 5).map((patient, i) => (
+            {beds.filter((b) => b.risk === "critical" || b.risk === "attention").slice(0, 5).map((patient, i) => (
               <div key={patient.internacaoId || patient.id + "-" + i} className="flex items-center justify-between px-2.5 sm:px-3 py-2 sm:py-2.5 gap-2" style={styles.patientRow}>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs sm:text-sm font-semibold truncate" style={styles.patientName}>

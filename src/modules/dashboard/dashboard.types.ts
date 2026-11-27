@@ -28,6 +28,6 @@ export interface DoctorModalProps {
   doctor: Doctor;
   allBeds: Bed[];
   onClose: () => void;
-  onSave: (updatedDoctor: Doctor) => void;
+  onSave: (updatedDoctor: Doctor) => void | Promise<void>;
   onSelectPatient: (bed: Bed) => void;
 }

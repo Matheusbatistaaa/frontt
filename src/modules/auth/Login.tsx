@@ -26,8 +26,8 @@ const FEATURES = [
 ];
 
 export const LoginScreen: React.FC<LoginProps> = ({ onLogin, onBack }) => {
-  const [email, setEmail] = useState("dra.ferraz@hospital.com");
-  const [password, setPassword] = useState("hash_senha_456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -41,11 +41,8 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin, onBack }) => {
       setLoading(true);
       await signIn(email, password);
       onLogin();
-    } catch (error: any) {
-      // Modo de apresentação / demonstração sem necessidade de backend hospedado
-      console.warn("Supabase auth offline/erro, prosseguindo em modo demonstração:", error);
-      toast.success("Acesso autorizado (Modo Demonstração)");
-      onLogin();
+    } catch (error) {
+      toast.error(`Não foi possível entrar: ${error instanceof Error ? error.message : "credenciais inválidas"}`);
     } finally {
       setLoading(false);
     }
@@ -187,9 +184,6 @@ export const LoginScreen: React.FC<LoginProps> = ({ onLogin, onBack }) => {
             {loading ? "Entrando..." : "Entrar"}
           </button>
 
-          <p className="text-[12px] mt-5" style={loginStyles.demoText}>
-            Demo: dra.ferraz@hospital.com/ hash_senha_456
-          </p>
         </form>
       </div>
     </div>

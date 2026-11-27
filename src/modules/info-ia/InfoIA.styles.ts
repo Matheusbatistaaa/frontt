@@ -1,4 +1,45 @@
+import {
+  AlertTriangle,
+  BedSingle,
+  CloudRain,
+  Frown,
+  Meh,
+  Minus,
+  Moon,
+  Sun,
+} from "lucide-react";
+import { MoodMeta } from "../../types";
 import { COLORS } from "../../config/colors";
+
+const expressionMeta: Record<string, MoodMeta> = {
+  dor: { label: "Dor", icon: AlertTriangle, color: COLORS.red },
+  medo: { label: "Medo", icon: Frown, color: COLORS.red },
+  tristeza: { label: "Tristeza", icon: CloudRain, color: COLORS.orange },
+  enjoo: { label: "Enjoo", icon: Meh, color: COLORS.orange },
+  sono: { label: "Sonolência", icon: Moon, color: COLORS.slate },
+  dormindo: { label: "Dormindo", icon: BedSingle, color: COLORS.slate },
+  acordado: { label: "Acordado", icon: Sun, color: COLORS.green },
+  neutro: { label: "Neutro", icon: Minus, color: COLORS.slate },
+};
+
+const emptyExpressionMeta: MoodMeta = {
+  label: "Sem expressão",
+  icon: Minus,
+  color: COLORS.slate,
+};
+
+export function getExpressionMeta(emotion?: string | null): MoodMeta {
+  const normalized = emotion?.trim().toLowerCase();
+  if (!normalized) return emptyExpressionMeta;
+
+  return (
+    expressionMeta[normalized] ?? {
+      label: normalized.charAt(0).toUpperCase() + normalized.slice(1),
+      icon: Minus,
+      color: COLORS.slate,
+    }
+  );
+}
 
 export const infoIAStyles = {
   card: {

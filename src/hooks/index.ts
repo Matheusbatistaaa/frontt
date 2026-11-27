@@ -1,4 +1,7 @@
 export * from './useAuth';
+export * from './usePacientes';
+export * from './useMedicos';
+export * from './useProntuario';
 export * from './useInternacoes';
 export * from './useSinaisVitais';
 export * from './useExpressoes';

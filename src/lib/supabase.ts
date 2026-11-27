@@ -7,7 +7,7 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
   console.warn(
-    'Atenção: Variáveis de ambiente do Supabase não encontradas. Rodando em modo demonstração (dados mock).',
+    'Atenção: Variáveis de ambiente do Supabase não encontradas. As operações de banco ficarão indisponíveis.',
   );
 }
 

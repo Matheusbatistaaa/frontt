@@ -5,7 +5,9 @@ import { doctorCardStyles as styles, getPlantaoToggleStyle } from "./styles/Doct
 import { COLORS } from "../config/colors";
 
 export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, beds, onOpenModal }) => {
-  const pacientesDoMedico = beds.filter((b) => doctor.pacientes.includes(b.id) && b.status === "internado");
+  const pacientesDoMedico = beds.filter((bed) =>
+    Boolean(bed.internacaoId) && doctor.pacientes.includes(bed.internacaoId!) && bed.status === "internado"
+  );
 
   return (
     <button

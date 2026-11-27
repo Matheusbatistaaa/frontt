@@ -21,7 +21,9 @@ export interface FichaPaciente {
 
 export interface Bed {
   id: string; 
-  internacaoId?: string; 
+  pacienteId?: string | undefined;
+  leitoId?: string | undefined;
+  internacaoId?: string | undefined;
   name: string;
   hr: number;
   hrSeries: number[];
@@ -96,7 +98,7 @@ export interface Doctor {
   nome: string;
   especialidade: string;
   crm: string;
-  turno: "manhã" | "tarde" | "noite";
+  turno: "manhã" | "tarde" | "noite" | "nao-definido";
   horarioInicio: string; 
   horarioFim: string;    
   plantao: boolean;

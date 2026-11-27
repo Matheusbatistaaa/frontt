@@ -125,14 +125,20 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
     prefsRef.current = draft;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-    } catch {}  }, [draft]);
+    } catch {
+      return;
+    }
+  }, [draft]);
 
   const reset = useCallback(() => {
     setPrefs(DEFAULT_PREFS);
     setDraftState(DEFAULT_PREFS);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
-    } catch {}  }, []);
+    } catch {
+      return;
+    }
+  }, []);
 
   const dirty = useMemo(
     () => JSON.stringify(prefs) !== JSON.stringify(draft),

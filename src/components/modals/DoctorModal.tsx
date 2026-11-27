@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { Doctor } from "../../types";
+import { toast } from "sonner";
+import { Bed, Doctor } from "../../types";
 import { DoctorModalProps } from "../../modules/dashboard/dashboard.types";
 import { doctorModalStyles as styles, getPlantaoToggleStyle } from "./styles/DoctorModal.styles";
 
@@ -10,6 +11,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
   const [horarioInicio, setHorarioInicio] = useState(doctor.horarioInicio);
   const [horarioFim, setHorarioFim] = useState(doctor.horarioFim);
   const [pacientesSelecionados, setPacientesSelecionados] = useState<string[]>(doctor.pacientes);
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     setPlantao(doctor.plantao);
@@ -17,9 +19,11 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
     setHorarioInicio(doctor.horarioInicio);
     setHorarioFim(doctor.horarioFim);
     setPacientesSelecionados(doctor.pacientes);
-  }, [doctor.id]);
+  }, [doctor.id, doctor.plantao, doctor.turno, doctor.horarioInicio, doctor.horarioFim, doctor.pacientes]);
 
-  const internados = allBeds.filter((b) => b.status === "internado");
+  const internados = allBeds.filter((bed): bed is Bed & { internacaoId: string } =>
+    bed.status === "internado" && Boolean(bed.internacaoId)
+  );
 
   const togglePaciente = (bedId: string) => {
     setPacientesSelecionados((prev) =>
@@ -27,16 +31,24 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
     );
   };
 
-  const handleSave = () => {
-    onSave({
-      ...doctor,
-      plantao,
-      turno,
-      horarioInicio,
-      horarioFim,
-      pacientes: pacientesSelecionados,
-    });
-    onClose();
+  const handleSave = async () => {
+    if (salvando) return;
+    setSalvando(true);
+    try {
+      await onSave({
+        ...doctor,
+        plantao,
+        turno,
+        horarioInicio,
+        horarioFim,
+        pacientes: pacientesSelecionados,
+      });
+      onClose();
+    } catch (error) {
+      toast.error(`Não foi possível salvar os dados do médico: ${error instanceof Error ? error.message : "erro inesperado"}`);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -91,6 +103,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
             <option value="manhã">Manhã</option>
             <option value="tarde">Tarde</option>
             <option value="noite">Noite</option>
+            <option value="nao-definido">Não definido</option>
           </select>
         </div>
 
@@ -101,7 +114,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="time"
-              value={horarioInicio}
+              value={horarioInicio === "—" ? "" : horarioInicio}
               onChange={(e) => setHorarioInicio(e.target.value)}
               className="flex-1 min-w-[100px] px-3 py-2 border text-xs sm:text-sm outline-none"
               style={styles.input}
@@ -109,7 +122,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
             <span style={styles.label} className="text-xs">até</span>
             <input
               type="time"
-              value={horarioFim}
+              value={horarioFim === "—" ? "" : horarioFim}
               onChange={(e) => setHorarioFim(e.target.value)}
               className="flex-1 min-w-[100px] px-3 py-2 border text-xs sm:text-sm outline-none"
               style={styles.input}
@@ -123,7 +136,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           </p>
           <div className="space-y-1 max-h-48 overflow-y-auto">
             {internados.map((bed) => {
-              const isChecked = pacientesSelecionados.includes(bed.id);
+              const isChecked = pacientesSelecionados.includes(bed.internacaoId);
               return (
                 <div
                   key={bed.id}
@@ -134,7 +147,7 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => togglePaciente(bed.id)}
+                      onChange={() => togglePaciente(bed.internacaoId)}
                       className="shrink-0"
                     />
                     <span className="text-xs sm:text-sm truncate" style={styles.patientName}>
@@ -172,10 +185,11 @@ export const DoctorModal: React.FC<DoctorModalProps> = ({ doctor, allBeds, onClo
           <button
             type="button"
             onClick={handleSave}
-            className="px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            disabled={salvando}
+            className="px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             style={styles.saveButton}
           >
-            Salvar
+            {salvando ? "Salvando..." : "Salvar"}
           </button>
         </div>
       </div>

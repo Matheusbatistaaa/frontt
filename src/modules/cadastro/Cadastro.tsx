@@ -4,6 +4,8 @@ import { TopBar } from "../../shared/components";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { useMedicos } from "../../hooks";
+import { formatDateInBrazil } from "../../lib/dateTime";
 import { cadastroStyles as styles, getSubmitButtonStyle } from "./cadastro.styles";
 
 interface Leito {
@@ -24,7 +26,23 @@ const GENERO_OPTIONS = [
   { value: "M", label: "Masculino" },
 ];
 
-const FormField = ({ label, value, onChange, placeholder, type = "text", span = 1 }: any) => (
+interface FormFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+  span?: number;
+}
+
+interface InternacaoRecenteRow {
+  id: number;
+  data_internacao: string;
+  paciente?: { nome: string } | null;
+  leito?: { numero: string } | null;
+}
+
+const FormField = ({ label, value, onChange, placeholder, type = "text", span = 1 }: FormFieldProps) => (
   <div className={span === 2 ? "col-span-1 sm:col-span-2" : "col-span-1"}>
     <label className="text-[12px] sm:text-[12.5px] font-semibold" style={styles.fieldLabel}>
       {label}
@@ -45,6 +63,9 @@ export const Cadastro: React.FC = () => {
   const [leitos, setLeitos] = useState<Leito[]>([]);
   const [pacientes, setPacientes] = useState<PacienteCadastrado[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [medicoSelecionado, setMedicoSelecionado] = useState("");
+  const [leitoSelecionado, setLeitoSelecionado] = useState("");
+  const { data: medicos = [], isLoading: carregandoMedicos } = useMedicos();
 
   const [lgpd, setLgpd] = useState(false);
   const [camera, setCamera] = useState(false);
@@ -74,7 +95,7 @@ export const Cadastro: React.FC = () => {
     if (leitosResp.data) setLeitos(leitosResp.data as Leito[]);
     if (internacoesResp.data) {
       setPacientes(
-        internacoesResp.data.map((int: any) => ({
+        (internacoesResp.data as unknown as InternacaoRecenteRow[]).map((int) => ({
           id: int.id,
           nome: int.paciente?.nome ?? "Desconhecido",
           leito: int.leito?.numero ?? null,
@@ -100,6 +121,8 @@ export const Cadastro: React.FC = () => {
     setNumeroEmergencia("");
     setAlergias("");
     setDiagnostico("");
+    setMedicoSelecionado("");
+    setLeitoSelecionado("");
     setLgpd(false);
     setCamera(false);
   };
@@ -110,8 +133,14 @@ export const Cadastro: React.FC = () => {
       return;
     }
 
-    if (leitosLivresDb.length === 0) {
-      toast.error("Nenhum leito livre disponível no momento");
+    if (!medicoSelecionado) {
+      toast.error("Selecione o médico responsável");
+      return;
+    }
+
+    const leito = leitosLivresDb.find((item) => String(item.id) === leitoSelecionado);
+    if (!leito) {
+      toast.error("Selecione um leito livre disponível");
       return;
     }
 
@@ -127,8 +156,6 @@ export const Cadastro: React.FC = () => {
         toast.error("Já existe um paciente cadastrado com este CPF");
         return;
       }
-
-      const leito = leitosLivresDb[Math.floor(Math.random() * leitosLivresDb.length)]!;
 
       const { data: novoPaciente, error: erroPaciente } = await supabase
         .from("pacientes")
@@ -151,7 +178,7 @@ export const Cadastro: React.FC = () => {
         paciente_id: novoPaciente.id,
         leito_id: leito.id,
         diagnostico_principal: diagnostico.trim() || "A definir",
-        medico_responsavel_id: 1,
+        medico_responsavel_id: medicoSelecionado,
         data_internacao: new Date().toISOString(),
         ativo: true,
       });
@@ -168,9 +195,12 @@ export const Cadastro: React.FC = () => {
       await Promise.all([
         carregar(),
         queryClient.invalidateQueries({ queryKey: ["internacoes"] }),
+        queryClient.invalidateQueries({ queryKey: ["pacientes"] }),
+        queryClient.invalidateQueries({ queryKey: ["medicos"] }),
+        queryClient.invalidateQueries({ queryKey: ["leitos"] }),
       ]);
-    } catch (err: any) {
-      toast.error(`Falha ao cadastrar paciente: ${err?.message ?? "erro inesperado"}`);
+    } catch (err) {
+      toast.error(`Falha ao cadastrar paciente: ${err instanceof Error ? err.message : "erro inesperado"}`);
     } finally {
       setSalvando(false);
     }
@@ -218,23 +248,40 @@ export const Cadastro: React.FC = () => {
               <label className="text-[12px] sm:text-[12.5px] font-semibold" style={styles.fieldLabel}>
                 Leito atribuído
               </label>
-              <div className="mt-1.5 flex items-center gap-2">
-                <div
-                  className="flex-1 h-10 sm:h-11 border px-3 flex items-center text-xs sm:text-sm truncate"
-                  style={styles.fieldInput}
-                >
-                  <BedSingle size={15} color={styles.bedIconColor} className="mr-2 shrink-0" />
-                  <span className="truncate">
-                    Atribuição automática
-                    {leitosLivresDb.length > 0
-                      ? ` — ${leitosLivresDb.length} ${leitosLivresDb.length > 1 ? "disponíveis" : "disponível"}`
-                      : " — nenhum livre"}
-                  </span>
-                </div>
-              </div>
+              <select
+                value={leitoSelecionado}
+                onChange={(e) => setLeitoSelecionado(e.target.value)}
+                className="w-full h-10 sm:h-11 border px-3 text-xs sm:text-sm outline-none mt-1.5"
+                style={styles.fieldInput}
+              >
+                <option value="">Selecione um leito livre</option>
+                {leitosLivresDb.map((leito) => (
+                  <option key={leito.id} value={leito.id}>Leito {leito.numero}</option>
+                ))}
+              </select>
               <p className="text-[10.5px] sm:text-[11px] mt-1" style={styles.fieldInput}>
-                O leito é sorteado automaticamente dentre os disponíveis.
+                {leitosLivresDb.length} leito(s) disponível(is) no banco de dados.
               </p>
+            </div>
+
+            <div className="col-span-1 sm:col-span-2">
+              <label className="text-[12px] sm:text-[12.5px] font-semibold" style={styles.fieldLabel}>
+                Médico responsável
+              </label>
+              <select
+                value={medicoSelecionado}
+                onChange={(e) => setMedicoSelecionado(e.target.value)}
+                disabled={carregandoMedicos}
+                className="w-full h-10 sm:h-11 border px-3 text-xs sm:text-sm outline-none mt-1.5 disabled:opacity-60"
+                style={styles.fieldInput}
+              >
+                <option value="">{carregandoMedicos ? "Carregando médicos..." : "Selecione o médico responsável"}</option>
+                {medicos.map((medico) => (
+                  <option key={medico.id} value={medico.id}>
+                    {medico.nome} {medico.crm !== "—" ? `· ${medico.crm}` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <FormField
@@ -350,7 +397,7 @@ export const Cadastro: React.FC = () => {
                     </p>
                     <p className="text-[10.5px] sm:text-[11px] truncate" style={styles.cadastroInfo}>
                       {c.leito ? `Leito ${c.leito} · ` : ""}
-                      {c.criadoEm ? `Admissão: ${new Date(c.criadoEm).toLocaleDateString()}` : "Recente"}
+                      {c.criadoEm ? `Admissão: ${formatDateInBrazil(c.criadoEm)}` : "Recente"}
                     </p>
                   </div>
                 </div>

@@ -3,13 +3,18 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { TopBar } from "../../shared/components";
 import { COLORS } from "../../config/colors";
-import { useCalendario } from "../../hooks";
-import { supabase } from "../../lib/supabase";
-import { eventTypeMeta, calendarEvents } from "./calendarioData";
+import {
+  useCalendario,
+  useCriarEvento,
+  useExcluirEvento,
+} from "../../hooks";
+import { eventTypeMeta } from "./calendarioData";
 import type { TipoEventoKey, EventoCalendario } from "./calendario.types";
-import { NovoEventoModal, NovoEventoFormData } from "../../components/modals/NovoEventoModal";
+import { NovoEventoModal } from "../../components/modals/NovoEventoModal";
+import type { NovoEventoFormData } from "./calendario.types";
 import { EventoDetalhesModal } from "../../components/modals/EventoDetalhesModal";
 import {
+  getTodayInBrazil,
   getWeekDays,
   getMonthGridDays,
   WEEKDAY_NAMES,
@@ -35,15 +40,15 @@ export const Calendario: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventoCalendario | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("semana");
-  const [referenceDate, setReferenceDate] = useState(new Date());
-  const [localEvents, setLocalEvents] = useState<EventoCalendario[]>(calendarEvents);
+  const [referenceDate, setReferenceDate] = useState(getTodayInBrazil);
 
-  const { data: supabaseEvents, refetch } = useCalendario();
-
-  const events = (supabaseEvents && supabaseEvents.length > 0) ? supabaseEvents : localEvents;
+  const { data: events = [], isLoading, isError, refetch } = useCalendario();
+  const criarEvento = useCriarEvento();
+  const excluirEvento = useExcluirEvento();
 
   const weekDays = useMemo(() => getWeekDays(referenceDate), [referenceDate]);
   const monthDays = useMemo(() => getMonthGridDays(referenceDate), [referenceDate]);
+  const today = useMemo(getTodayInBrazil, []);
 
   const rangeLabel = viewMode === "semana" ? formatWeekRangeLabel(weekDays) : formatMonthLabel(referenceDate);
 
@@ -56,58 +61,27 @@ export const Calendario: React.FC = () => {
   };
 
   const handleSaveEvento = async (data: NovoEventoFormData) => {
-    const novo: EventoCalendario = {
-      data: data.data,
-      hora: data.hora,
-      titulo: data.titulo,
-      tipo: data.tipo,
-      descricao: data.observacoes || "",
-    };
     try {
-      const inicio = `${data.data}T${data.hora}:00`;
-      const fim = `${data.data}T${data.hora}:00`;
-      const payload = {
-        titulo: data.titulo,
-        tipo: data.tipo,
-        data_hora_inicio: inicio,
-        data_hora_fim: fim,
-        descricao: data.observacoes || "",
-      };
-      const { error } = await supabase.from("calendario_eventos").insert(payload);
-      if (error) throw error;
-      setLocalEvents((prev) => [...prev, novo]);
+      await criarEvento.mutateAsync(data);
       toast.success("Evento adicionado ao calendário");
-      setModalOpen(false);
-      refetch();
     } catch (err) {
-      console.warn("Evento salvo localmente:", err);
-      setLocalEvents((prev) => [...prev, novo]);
-      toast.success("Evento adicionado ao calendário");
-      setModalOpen(false);
+      console.error("Erro ao salvar evento:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o evento.");
+      throw err;
     }
   };
 
   const handleDeleteEvento = async (evento: EventoCalendario) => {
     try {
-      if (evento.id) {
-        const { error } = await supabase.from("calendario_eventos").delete().eq("id", evento.id);
-        if (error) throw error;
-      }
-      setLocalEvents((prev) =>
-        prev.filter((e) => !(e.data === evento.data && e.hora === evento.hora && e.titulo === evento.titulo))
-      );
+      await excluirEvento.mutateAsync(evento.id);
       toast.success("Evento excluído com sucesso");
-      refetch();
     } catch (err) {
-      console.warn("Erro ao excluir evento:", err);
-      setLocalEvents((prev) =>
-        prev.filter((e) => !(e.data === evento.data && e.hora === evento.hora && e.titulo === evento.titulo))
-      );
-      toast.success("Evento removido localmente");
+      console.error("Erro ao excluir evento:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível excluir o evento.");
+      throw err;
     }
   };
 
-  const today = new Date();
   const isMonthView = viewMode === "mes";
 
   return (
@@ -167,7 +141,23 @@ export const Calendario: React.FC = () => {
         className="flex-1 mx-3 sm:mx-6 md:mx-8 my-3 sm:my-5 bg-white border overflow-x-auto flex flex-col rounded-lg shadow-xs"
         style={styles.gridBorder}
       >
-        {isMonthView ? (
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center p-6 text-sm text-slate-500">
+            Carregando eventos...
+          </div>
+        ) : isError ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-sm text-slate-600">
+            <p>Não foi possível carregar os eventos do calendário.</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="px-3 py-2 border rounded text-xs font-semibold"
+              style={styles.navButton}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : isMonthView ? (
           <div className="flex-1 flex flex-col min-w-[700px]">
             <div className="grid grid-cols-7 border-b bg-slate-50/80 shrink-0" style={{ borderColor: COLORS.line }}>
               {WEEKDAY_NAMES.map((name, i) => (
@@ -186,7 +176,7 @@ export const Calendario: React.FC = () => {
             <div className="grid grid-cols-7 flex-1 auto-rows-fr">
               {monthDays.map((day, idx) => {
                 const iso = toISODate(day);
-                const isCurrentMonth = day.getMonth() === referenceDate.getMonth();
+                const isCurrentMonth = day.getUTCMonth() === referenceDate.getUTCMonth();
                 const isToday = isSameDay(day, today);
                 const dayEvents = events.filter((e) => e.data === iso);
                 const isLastCol = (idx + 1) % 7 === 0;
@@ -209,7 +199,7 @@ export const Calendario: React.FC = () => {
                             : "text-slate-400"
                         }`}
                       >
-                        {day.getDate()}
+                        {day.getUTCDate()}
                       </span>
                       {dayEvents.length > 0 && (
                         <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
@@ -219,11 +209,11 @@ export const Calendario: React.FC = () => {
                     </div>
 
                     <div className="flex-1 flex flex-col gap-1 overflow-y-auto max-h-[80px]">
-                      {dayEvents.map((e, j) => {
+                      {dayEvents.map((e) => {
                         const meta = eventTypeMeta[e.tipo as TipoEventoKey] || Object.values(eventTypeMeta)[0]!;
                         return (
                           <div
-                            key={j}
+                            key={e.id}
                             onClick={(ev) => {
                               ev.stopPropagation();
                               setSelectedEvent(e);
@@ -234,7 +224,7 @@ export const Calendario: React.FC = () => {
                               borderLeftColor: meta.color,
                               color: meta.color,
                             }}
-                            title={`${e.hora} - ${e.titulo}`}
+                            title={`${e.hora}${e.horaFim ? ` - ${e.horaFim}` : ""} - ${e.titulo}`}
                           >
                             <span className="font-bold text-[10px] shrink-0">{e.hora}</span>
                             <span className="truncate text-slate-800 text-[10.5px] font-medium">{e.titulo}</span>
@@ -274,17 +264,17 @@ export const Calendario: React.FC = () => {
                   </div>
 
                   <div className="flex-1 p-1.5 sm:p-2 flex flex-col gap-1.5 sm:gap-2">
-                    {dayEvents.map((e, j) => {
+                    {dayEvents.map((e) => {
                       const meta = eventTypeMeta[e.tipo as TipoEventoKey] || Object.values(eventTypeMeta)[0]!;
                       return (
                         <div
-                          key={j}
+                          key={e.id}
                           onClick={() => setSelectedEvent(e)}
                           className="p-1.5 sm:p-2 border-l-[3px] cursor-pointer rounded-r transition-all hover:shadow-xs"
                           style={getEventCardStyle(meta.color)}
                         >
                           <p className="mono text-[10px] sm:text-[10.5px] font-semibold" style={styles.eventTime(meta.color)}>
-                            {e.hora}
+                            {e.hora}{e.horaFim ? ` – ${e.horaFim}` : ""}
                           </p>
                           <p className="text-[10.5px] sm:text-[11px] font-medium leading-snug mt-0.5 break-words" style={styles.eventTitle}>
                             {e.titulo}

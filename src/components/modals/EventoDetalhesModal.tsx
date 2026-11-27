@@ -1,14 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { X, Calendar, Clock, MapPin, AlignLeft, Trash2 } from "lucide-react";
 import { eventTypeMeta } from "../../modules/calendario/calendarioData";
-import { EventoCalendario, TipoEventoKey } from "../../modules/calendario/calendario.types";
+import type { EventoCalendario, TipoEventoKey } from "../../modules/calendario/calendario.types";
+import { formatDateInBrazil, formatTimeInBrazil } from "../../lib/dateTime";
 import { COLORS, INK_OVERLAY } from "../../config/colors";
 
 interface EventoDetalhesModalProps {
   open: boolean;
   evento: EventoCalendario | null;
   onClose: () => void;
-  onDelete?: (evento: EventoCalendario) => void;
+  onDelete?: (evento: EventoCalendario) => Promise<void>;
 }
 
 export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
@@ -17,6 +18,8 @@ export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
   onClose,
   onDelete,
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!open || !evento) return null;
 
   const meta = eventTypeMeta[evento.tipo as TipoEventoKey] || {
@@ -24,22 +27,17 @@ export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
     color: COLORS.orange,
   };
 
-  const formatDisplayDate = (isoStr: string) => {
+  const handleDelete = async () => {
+    if (!onDelete || isDeleting) return;
+    setIsDeleting(true);
     try {
-      const [year, month, day] = isoStr.split("-").map(Number);
-      if (year && month && day) {
-        const d = new Date(year, month - 1, day);
-        return new Intl.DateTimeFormat("pt-BR", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }).format(d);
-      }
+      await onDelete(evento);
+      onClose();
     } catch {
-      return isoStr;
+      // O erro já foi exibido pelo componente responsável pela exclusão.
+    } finally {
+      setIsDeleting(false);
     }
-    return isoStr;
   };
 
   return (
@@ -108,7 +106,10 @@ export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
                   Data
                 </p>
                 <p className="text-xs sm:text-[13px] font-semibold text-slate-700 capitalize truncate">
-                  {formatDisplayDate(evento.data)}
+                  {formatDateInBrazil(evento.dataHoraInicio)}
+                  {evento.dataHoraFim && formatDateInBrazil(evento.dataHoraFim) !== formatDateInBrazil(evento.dataHoraInicio)
+                    ? ` – ${formatDateInBrazil(evento.dataHoraFim)}`
+                    : ""}
                 </p>
               </div>
             </div>
@@ -125,7 +126,8 @@ export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
                   Horário
                 </p>
                 <p className="text-xs sm:text-[13px] font-semibold text-slate-700">
-                  {evento.hora}
+                  {formatTimeInBrazil(evento.dataHoraInicio)}
+                  {evento.dataHoraFim ? ` – ${formatTimeInBrazil(evento.dataHoraFim)}` : ""}
                 </p>
               </div>
             </div>
@@ -141,7 +143,7 @@ export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
                   Local / Setor
                 </p>
                 <p className="text-xs sm:text-[13px] font-medium text-slate-700">
-                  Ala UTI 2 · Hospital Geral
+                  {evento.local || "Local não informado"}
                 </p>
               </div>
             </div>
@@ -169,14 +171,12 @@ export const EventoDetalhesModal: React.FC<EventoDetalhesModalProps> = ({
             {onDelete ? (
               <button
                 type="button"
-                onClick={() => {
-                  onDelete(evento);
-                  onClose();
-                }}
-                className="h-9 px-3 text-xs font-semibold text-red-600 hover:bg-red-50 rounded flex items-center gap-1.5 transition-colors"
+                onClick={() => void handleDelete()}
+                disabled={isDeleting}
+                className="h-9 px-3 text-xs font-semibold text-red-600 hover:bg-red-50 rounded flex items-center gap-1.5 transition-colors disabled:opacity-60"
               >
                 <Trash2 size={14} />
-                Excluir
+                {isDeleting ? "Excluindo..." : "Excluir"}
               </button>
             ) : <div />}
 

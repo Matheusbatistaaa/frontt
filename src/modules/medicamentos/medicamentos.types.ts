@@ -10,7 +10,7 @@ export interface Medicamento {
 }
 
 export interface NovoMedicamentoInput {
-  internacaoId?: number | string | undefined;
+  internacaoId: number | string;
   leito: string;
   paciente: string;
   nome: string;

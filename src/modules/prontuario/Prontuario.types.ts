@@ -5,6 +5,7 @@ export interface Paciente {
   leito: string;
   sexo?: "M" | "F" | undefined;
   condicao?: string | undefined;
+  internacaoId?: string | undefined;
 }
 
 export interface SinaisVitais {

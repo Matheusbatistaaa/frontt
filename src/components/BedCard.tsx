@@ -1,9 +1,22 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ChevronRight, ClipboardList, FileText } from "lucide-react";
-import { RiskLevel, MoodType } from "../types";
+import { RiskLevel } from "../types";
 import { BedCardProps } from "../modules/dashboard/dashboard.types";
 import { useSinaisVitais, useExpressoes } from "../hooks";
-import { moodMeta } from "../config/mockData";
+import {
+  ExpressaoInfoIA,
+  SinalVitalInfoIA,
+  confiancaReal,
+  emocaoReal,
+  frequenciaCardiacaReal,
+  isRiskLevel,
+  maisRecenteTimestamp,
+  ordenarPorTimestamp,
+  timestampReal,
+  ultimoPorTimestamp,
+} from "../modules/info-ia/info-ia.types";
+import { getExpressionMeta } from "../modules/info-ia/InfoIA.styles";
+import { formatDateInBrazil, formatTimeInBrazil } from "../lib/dateTime";
 import { COLORS } from "../config/colors";
 import {
   bedCardStyles as styles,
@@ -23,27 +36,45 @@ const RISK_OPTIONS: { value: RiskLevel; label: string }[] = [
 
 export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, onToggleStatus, onOpenFicha, onOpenProntuario }) => {
   const isInternado = bed.status === "internado";
-  const internacaoId = isInternado ? bed.internacaoId : undefined;
+  const internacaoId = isInternado ? bed.internacaoId || undefined : undefined;
 
-  const { data: vitals = [] } = useSinaisVitais(internacaoId);
-  const { data: expressions = [] } = useExpressoes(internacaoId);
+  const { data: sinaisVitais = [] } = useSinaisVitais(internacaoId);
+  const { data: expressoesFaciais = [] } = useExpressoes(internacaoId);
 
-  const latestVital: any = vitals[vitals.length - 1];
-  const hr = latestVital?.hr ?? latestVital?.frequencia_cardiaca ?? bed.hr;
+  const vitals = useMemo(() => sinaisVitais as SinalVitalInfoIA[], [sinaisVitais]);
+  const expressions = useMemo(
+    () => expressoesFaciais as ExpressaoInfoIA[],
+    [expressoesFaciais]
+  );
+  const sortedVitals = useMemo(() => ordenarPorTimestamp(vitals), [vitals]);
+  const sortedExpressions = useMemo(() => ordenarPorTimestamp(expressions), [expressions]);
+  const latestVital = ultimoPorTimestamp(sortedVitals);
+  const latestExpression = ultimoPorTimestamp(sortedExpressions);
 
-  const latestExpression: any = expressions[expressions.length - 1];
-  const moodName = (latestExpression?.mood ?? latestExpression?.emocao ?? bed.mood) as MoodType;
-  const mood = moodMeta[moodName] ?? moodMeta["neutro"]!;
+  const hr = frequenciaCardiacaReal(latestVital);
+  const emotion = emocaoReal(latestExpression);
+  const mood = getExpressionMeta(emotion);
   const MoodIcon = mood.icon;
-  const conf = latestExpression?.confianca ?? latestExpression?.conf ?? bed.conf;
-  const acordado = moodName !== "dormindo";
-  const hrSeries = vitals.length > 0 ? vitals.map((v: any) => v.hr ?? v.frequencia_cardiaca ?? 0) : bed.hrSeries;
-  const vitalTimestamp = latestVital?.timestamp ?? latestVital?.registrado_em;
-  const ts = vitalTimestamp
-    ? new Date(vitalTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : bed.ts;
+  const confidence = confiancaReal(latestExpression);
+  const consciousness =
+    emotion?.toLowerCase() === "dormindo"
+      ? "Dormindo"
+      : emotion?.toLowerCase() === "acordado"
+      ? "Acordado"
+      : "Não informado";
+  const hrSeries = sortedVitals
+    .map(frequenciaCardiacaReal)
+    .filter((value): value is number => value !== null);
+  const latestTimestamp = maisRecenteTimestamp(
+    timestampReal(latestVital),
+    timestampReal(latestExpression)
+  );
+  const ts = latestTimestamp ? formatTimeInBrazil(latestTimestamp) : "—";
+  const fullTimestamp = latestTimestamp
+    ? `${formatDateInBrazil(latestTimestamp)} ${formatTimeInBrazil(latestTimestamp)}`
+    : "Horário não informado";
 
-  const validRisk = (["normal", "attention", "critical"] as const).includes(bed.risk) ? bed.risk : "normal";
+  const validRisk = isRiskLevel(bed.risk) ? bed.risk : null;
 
   return (
     <div
@@ -51,7 +82,9 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
       style={{
         ...styles.button,
         opacity: isInternado ? 1 : 0.55,
-        borderLeft: `5px solid ${isInternado ? getRiskStripe(validRisk) : COLORS.line}`,
+        borderLeft: `5px solid ${
+          isInternado ? (validRisk ? getRiskStripe(validRisk) : COLORS.line) : COLORS.line
+        }`,
       }}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -79,12 +112,21 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
 
           {isInternado && (
             <select
-              value={validRisk}
+              value={validRisk ?? ""}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => onChangeRisk(bed.id, e.target.value as RiskLevel)}
               className="text-[10.5px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 border-none outline-none rounded"
-              style={getRiskBadgeStyle(validRisk)}
+              style={
+                validRisk
+                  ? getRiskBadgeStyle(validRisk)
+                  : { background: COLORS.bg, color: COLORS.slateSoft }
+              }
             >
+              {!validRisk && (
+                <option value="" disabled>
+                  Não informado
+                </option>
+              )}
               {RISK_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -103,7 +145,8 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] sm:text-xs truncate" style={styles.moodLabel}>
-                {mood.label} • {conf}%
+                {mood.label}
+                {emotion && confidence !== null ? ` • ${confidence}%` : ""}
               </p>
             </div>
           </div>
@@ -114,33 +157,47 @@ export const BedCard: React.FC<BedCardProps> = ({ bed, onSelect, onChangeRisk, o
                 FC
               </p>
               <p className="font-semibold text-xs sm:text-sm truncate" style={styles.statValue}>
-                {hr}
+                {hr ?? "—"}
               </p>
             </div>
             <div className="min-w-0">
               <p className="text-[10px] sm:text-xs truncate" style={styles.statLabel}>
                 Consciência
               </p>
-              <p className="font-semibold text-xs sm:text-sm truncate" style={getAcordadoStyle(acordado)}>
-                {acordado ? "Acordado" : "Dormindo"}
+              <p className="font-semibold text-xs sm:text-sm truncate" style={getAcordadoStyle(consciousness === "Acordado")}>
+                {consciousness}
               </p>
             </div>
             <div className="min-w-0">
               <p className="text-[10px] sm:text-xs truncate" style={styles.statLabel}>
                 Atualização
               </p>
-              <p className="font-semibold text-[10.5px] sm:text-xs truncate" style={styles.statValue}>
+              <p
+                className="font-semibold text-[10.5px] sm:text-xs truncate"
+                style={styles.statValue}
+                title={fullTimestamp}
+              >
                 {ts}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex gap-1">
-              {hrSeries.slice(-3).map((h, i) => (
-                <div key={i} className="w-2 rounded-full" style={getHrBarStyle(h)} />
-              ))}
-            </div>
+            {hrSeries.length > 0 ? (
+              <div className="flex gap-1">
+                {hrSeries.slice(-3).map((value, index) => (
+                  <div
+                    key={`fc-${index}`}
+                    className="w-2 rounded-full"
+                    style={getHrBarStyle(value)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <span className="text-[10px] sm:text-[11px]" style={styles.statLabel}>
+                Sem histórico de FC
+              </span>
+            )}
             <div className="flex flex-wrap items-center gap-1.5">
               {onOpenFicha && (
                 <button

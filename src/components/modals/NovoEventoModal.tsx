@@ -1,53 +1,80 @@
 import React, { useState } from "react";
 import { X, CalendarPlus } from "lucide-react";
+import { toast } from "sonner";
 import { eventTypeMeta } from "../../modules/calendario/calendarioData";
-import { TipoEventoKey } from "../../modules/calendario/calendario.types";
+import type { NovoEventoFormData, TipoEventoKey } from "../../modules/calendario/calendario.types";
+import {
+  formatTimeInBrazil,
+  getDateInBrazil,
+  zonedDateTimeToUtc,
+} from "../../lib/dateTime";
 import {
   novoEventoModalStyles as styles,
   getTypeChipStyle,
 } from "./styles/NovoEventoModal.styles";
 
-export interface NovoEventoFormData {
-  tipo: TipoEventoKey;
-  titulo: string;
-  data: string;
-  hora: string;
-  observacoes: string;
-}
+export type { NovoEventoFormData } from "../../modules/calendario/calendario.types";
 
 interface NovoEventoModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (evento: NovoEventoFormData) => void;
+  onSave: (evento: NovoEventoFormData) => Promise<void>;
 }
 
 const tipoKeys = Object.keys(eventTypeMeta) as TipoEventoKey[];
 
+const getDefaultSchedule = () => {
+  const agora = new Date();
+  const data = getDateInBrazil(agora);
+  const hora = formatTimeInBrazil(agora);
+  const fim = new Date(new Date(zonedDateTimeToUtc(data, hora)).getTime() + 60 * 60 * 1000);
+  return { data, hora, dataFim: getDateInBrazil(fim), horaFim: formatTimeInBrazil(fim) };
+};
+
 export const NovoEventoModal: React.FC<NovoEventoModalProps> = ({ open, onClose, onSave }) => {
   const [tipo, setTipo] = useState<TipoEventoKey>(tipoKeys[0]!);
   const [titulo, setTitulo] = useState("");
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
-  const [hora, setHora] = useState("");
+  const [data, setData] = useState(() => getDefaultSchedule().data);
+  const [hora, setHora] = useState(() => formatTimeInBrazil());
+  const [dataFim, setDataFim] = useState(() => getDefaultSchedule().dataFim);
+  const [horaFim, setHoraFim] = useState(() => getDefaultSchedule().horaFim);
   const [observacoes, setObservacoes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!open) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    if (!titulo.trim() || !hora.trim()) return;
+    if (!titulo.trim() || !data || !hora || !dataFim || !horaFim) {
+      toast.error("Preencha o título, o início e o término do evento.");
+      return;
+    }
+
+    const inicio = new Date(zonedDateTimeToUtc(data, hora));
+    const fim = new Date(zonedDateTimeToUtc(dataFim, horaFim));
+    if (fim.getTime() <= inicio.getTime()) {
+      toast.error("O término do evento deve ser posterior ao início.");
+      return;
+    }
 
     setIsSubmitting(true);
-    onSave({ tipo, titulo, data, hora, observacoes });
-
-    setTipo(tipoKeys[0]!);
-    setTitulo("");
-    setData(new Date().toISOString().slice(0, 10));
-    setHora("");
-    setObservacoes("");
-    onClose();
-    setIsSubmitting(false);
+    try {
+      await onSave({ tipo, titulo: titulo.trim(), data, hora, dataFim, horaFim, observacoes });
+      const defaults = getDefaultSchedule();
+      setTipo(tipoKeys[0]!);
+      setTitulo("");
+      setData(defaults.data);
+      setHora(defaults.hora);
+      setDataFim(defaults.dataFim);
+      setHoraFim(defaults.horaFim);
+      setObservacoes("");
+      onClose();
+    } catch {
+      // O componente responsável exibe o toast de erro e mantém o formulário aberto.
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -62,7 +89,7 @@ export const NovoEventoModal: React.FC<NovoEventoModalProps> = ({ open, onClose,
               Novo Evento
             </p>
           </div>
-          <button type="button" onClick={onClose} className="w-7 h-7 flex items-center justify-center p-1">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="w-7 h-7 flex items-center justify-center p-1 disabled:opacity-50">
             <X size={16} color={styles.closeIconColor} />
           </button>
         </div>
@@ -112,6 +139,7 @@ export const NovoEventoModal: React.FC<NovoEventoModalProps> = ({ open, onClose,
               </label>
               <input
                 type="date"
+                required
                 value={data}
                 onChange={(e) => setData(e.target.value)}
                 className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
@@ -124,8 +152,38 @@ export const NovoEventoModal: React.FC<NovoEventoModalProps> = ({ open, onClose,
               </label>
               <input
                 type="time"
+                required
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
+                className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
+                style={styles.input}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11.5px] font-semibold" style={styles.label}>
+                Data de término
+              </label>
+              <input
+                type="date"
+                required
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
+                style={styles.input}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11.5px] font-semibold" style={styles.label}>
+                Horário de término
+              </label>
+              <input
+                type="time"
+                required
+                value={horaFim}
+                onChange={(e) => setHoraFim(e.target.value)}
                 className="h-9 sm:h-10 px-3 text-xs sm:text-[13px] border outline-none"
                 style={styles.input}
               />
@@ -147,7 +205,7 @@ export const NovoEventoModal: React.FC<NovoEventoModalProps> = ({ open, onClose,
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 pt-2">
-            <button type="button" onClick={onClose} className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-semibold" style={styles.cancelButton}>
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-semibold disabled:opacity-50" style={styles.cancelButton}>
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting} className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed" style={styles.saveButton}>

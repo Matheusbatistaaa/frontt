@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import type { SinalVitalInfoIA } from '../modules/info-ia/info-ia.types';
 
 export function useSinaisVitais(internacaoId?: string) {
   const queryClient = useQueryClient();
@@ -19,10 +20,13 @@ export function useSinaisVitais(internacaoId?: string) {
           filter: `internacao_id=eq.${internacaoId}`,
         },
         (payload) => {
-          queryClient.setQueryData(['sinais_vitais', internacaoId], (old: any) => {
-            if (!old) return [payload.new];
-            return [...old, payload.new].slice(-100); 
-          });
+          queryClient.setQueryData<SinalVitalInfoIA[]>(
+            ['sinais_vitais', internacaoId],
+            (old) => {
+              const registro = payload.new as SinalVitalInfoIA;
+              return [...(old ?? []), registro].slice(-100);
+            },
+          );
         }
       )
       .subscribe();
@@ -32,7 +36,7 @@ export function useSinaisVitais(internacaoId?: string) {
     };
   }, [internacaoId, queryClient]);
 
-  return useQuery({
+  return useQuery<SinalVitalInfoIA[]>({
     queryKey: ['sinais_vitais', internacaoId],
     queryFn: async () => {
       if (!internacaoId) return [];

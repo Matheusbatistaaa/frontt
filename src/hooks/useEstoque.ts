@@ -1,50 +1,51 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import type { EstoqueItem } from '../modules/estoque/estoque.types';
+
+interface EstoqueRow {
+  id: string | number;
+  medicamento_id: string | number | null;
+  quantidade_atual: number | string | null;
+  quantidade_minima: number | string | null;
+  quantidade_maxima: number | string | null;
+  preco_unitario: number | string | null;
+  medicamento: {
+    nome: string | null;
+    categoria: string | null;
+    unidade_medida: string | null;
+    preco_unitario: number | string | null;
+  } | null;
+}
 
 export function useEstoque() {
-  return useQuery({
+  return useQuery<EstoqueItem[]>({
     queryKey: ['estoque'],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('estoque')
-          .select(`
-            id,
-            medicamento_id,
-            quantidade_atual,
-            quantidade_minima,
-            medicamento:medicamentos(id, nome, categoria, unidade_medida)
-          `);
+      const { data, error } = await supabase
+        .from('estoque')
+        .select(`
+          id,
+          medicamento_id,
+          quantidade_atual,
+          quantidade_minima,
+          quantidade_maxima,
+          preco_unitario,
+          medicamento:medicamentos(nome, categoria, unidade_medida, preco_unitario)
+        `)
+        .order('id', { ascending: true })
+        .returns<EstoqueRow[]>();
 
-        if (!error && data && data.length > 0) {
-          return data.map((row: any) => ({
-            id: String(row.id),
-            medicamentoId: row.medicamento_id,
-            nome: row.medicamento?.nome || 'Medicamento ' + row.id,
-            categoria: row.medicamento?.categoria || 'Insumos',
-            quantidade: Number(row.quantidade_atual ?? 0),
-            minimo: Number(row.quantidade_minima ?? 0),
-            unidade: row.medicamento?.unidade_medida || 'un',
-          }));
-        }
-      } catch (err) {
-        console.warn('[useEstoque] Falha ao carregar medicamentos com join:', err);
-      }
-
-      const { data, error } = await supabase.from('estoque').select('*');
-      if (error) {
-        console.error('[useEstoque] Supabase error:', error);
-        throw error;
-      }
-
-      return (data ?? []).map((row: any) => ({
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
         id: String(row.id),
         medicamentoId: row.medicamento_id,
-        nome: row.item || row.nome || 'Item ' + row.id,
-        categoria: row.categoria || 'Medicamentos',
-        quantidade: Number(row.quantidade_atual ?? row.quantidade ?? 0),
-        minimo: Number(row.quantidade_minima ?? row.minimo ?? 0),
-        unidade: row.unidade || 'un',
+        nome: row.medicamento?.nome ?? 'Medicamento não identificado',
+        categoria: row.medicamento?.categoria ?? 'Sem categoria',
+        quantidade: Number(row.quantidade_atual ?? 0),
+        minimo: Number(row.quantidade_minima ?? 0),
+        quantidadeMaxima: Number(row.quantidade_maxima ?? 0),
+        unidade: row.medicamento?.unidade_medida ?? 'un',
+        preco: Number(row.medicamento?.preco_unitario ?? row.preco_unitario ?? 0),
       }));
     },
     retry: 1,
