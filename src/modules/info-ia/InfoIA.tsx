@@ -63,15 +63,25 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
     setCurrentBed(bed);
   }, [bed]);
 
+  // Abrindo a tela pelo menu, o leito inicial vem do mock e não tem internação:
+  // o mesmo número de leito no Supabase assume o posto para a detecção funcionar.
+  useEffect(() => {
+    if (currentBed.internacaoId || internacoes.length === 0) return;
+    const match = availableBeds.find((b) => b.id === currentBed.id && b.internacaoId);
+    if (match) setCurrentBed(match);
+  }, [currentBed, availableBeds, internacoes]);
+
   const { data: vitals = [] } = useSinaisVitais(currentBed.internacaoId);
   const { data: expressions = [] } = useExpressoes(currentBed.internacaoId);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false);
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [cameraError, setCameraError] = useState<string>("");
+  const [detectionError, setDetectionError] = useState<string>("");
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectedEmotion, setDetectedEmotion] = useState<string | null>(null);
   const [detectedConf, setDetectedConf] = useState<number>(0);
@@ -94,6 +104,7 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
     setIsDetecting(false);
     setDetectedEmotion(null);
     setDetectedConf(0);
+    setDetectionError("");
   }, []);
 
   const handleSwitchBed = (newBed: Bed) => {
@@ -123,27 +134,33 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
   };
 
   const runDetection = useCallback(async () => {
-    if (!videoRef.current || !currentBed.internacaoId || isDetecting) return;
     const video = videoRef.current;
+    if (!video || !currentBed.internacaoId || inFlightRef.current) return;
     if (video.readyState < 2) return;
 
+    inFlightRef.current = true;
+    setIsDetecting(true);
     try {
-      setIsDetecting(true);
       const dataUrl = await captureFrame(video);
       const base64 = dataUrlToBase64(dataUrl);
       const result = await detectEmotion(base64, currentBed.internacaoId);
       setDetectedEmotion(result.Emotion);
       setDetectedConf(Math.round(result.Confidence * 100));
+      setDetectionError("");
       setLastDetectionTs(
         new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
       );
-    } catch {} finally {
+    } catch (err: any) {
+      setDetectionError(err?.message || "Falha ao consultar a IA");
+    } finally {
+      inFlightRef.current = false;
       setIsDetecting(false);
     }
-  }, [currentBed.internacaoId, isDetecting]);
+  }, [currentBed.internacaoId]);
 
   const startCamera = useCallback(async () => {
     setCameraError("");
+    setDetectionError("");
     setCameraState("starting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -480,6 +497,18 @@ export const InfoIA: React.FC<InfoIAProps> = ({ bed, onBack, onSelectBed }) => {
                   </p>
                 </div>
               </div>
+            )}
+
+            {cameraState === "active" && !currentBed.internacaoId && (
+              <p className="text-[11px]" style={{ color: COLORS.red }}>
+                Este leito não tem internação ativa. Escolha um leito monitorado no seletor acima.
+              </p>
+            )}
+
+            {detectionError && (
+              <p className="text-[11px]" style={{ color: COLORS.red }}>
+                Erro na detecção: {detectionError}
+              </p>
             )}
           </div>
         </div>
